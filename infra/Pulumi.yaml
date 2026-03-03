@@ -1,0 +1,7 @@
+name: fedcost
+runtime:
+  name: python
+  options:
+    toolchain: pip
+    virtualenv: ../.venv
+description: FedCost AWS infrastructure for federated learning experiments
