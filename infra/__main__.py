@@ -2,6 +2,7 @@
 
 import pulumi
 
+from compute import create_instances, create_key_pair
 from config import load_config
 from network import create_all_vpcs
 from security import create_iam_resources, create_security_groups
@@ -19,7 +20,31 @@ vpcs = create_all_vpcs()
 iam = create_iam_resources(data_bucket_arn=data_bucket.arn)
 sgs = create_security_groups(vpcs)
 
+# 4. Compute
+key_pair = create_key_pair(config.ssh_public_key)
+instances = create_instances(
+    vpcs=vpcs,
+    sgs=sgs,
+    iam=iam,
+    key_pair=key_pair,
+    tailscale_auth_key=config.tailscale_auth_key,
+    instance_types={
+        "fl-server": config.instance_type_fl_server,
+        "hospital-a": config.instance_type_hospital,
+        "hospital-b": config.instance_type_hospital,
+        "hospital-c": config.instance_type_hospital,
+        "centralized": config.instance_type_centralized,
+    },
+)
+
+# --- Exports ---
 pulumi.export("region", config.region)
 pulumi.export("data_bucket_name", data_bucket.bucket)
+
 for name, vpc_res in vpcs.items():
     pulumi.export(f"vpc_{name}_id", vpc_res.vpc.id)
+
+for name, inst in instances.items():
+    pulumi.export(f"ec2_{name}_id", inst.instance.id)
+    pulumi.export(f"ec2_{name}_private_ip", inst.private_ip)
+    pulumi.export(f"ec2_{name}_public_ip", inst.public_ip)
