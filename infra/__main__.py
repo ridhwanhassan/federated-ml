@@ -4,7 +4,7 @@ import pulumi
 
 from config import load_config
 from network import create_all_vpcs, create_peering
-from security import create_iam_resources
+from security import create_iam_resources, create_security_groups
 from storage import create_data_bucket
 
 config = load_config()
@@ -16,8 +16,9 @@ data_bucket = create_data_bucket()
 vpcs = create_all_vpcs()
 peerings = create_peering(vpcs)
 
-# 3. Security — IAM
+# 3. Security
 iam = create_iam_resources(data_bucket_arn=data_bucket.arn)
+sgs = create_security_groups(vpcs)
 
 pulumi.export("region", config.region)
 pulumi.export("data_bucket_name", data_bucket.bucket)
