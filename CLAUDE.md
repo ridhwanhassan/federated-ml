@@ -78,17 +78,12 @@ fedcost/
 uv sync                      # Install/sync all dependencies
 uv add <package>             # Add a dependency
 
-# Pulumi (one-time backend setup)
-pulumi login 's3://ieee-pulumi?region=ap-southeast-1&awssdk=v2'
-pulumi stack init dev
-
-# Pulumi stack operations (run from infra/)
+# Pulumi — see "Deploying with Pulumi" section below for full walkthrough
 cd infra/
 pulumi up                    # Preview and deploy changes
 pulumi preview               # Preview changes without deploying
 pulumi destroy               # Tear down all resources
-pulumi stack ls              # List stacks
-pulumi stack select <name>   # Switch active stack
+pulumi stack output --json   # Dump stack outputs (VPC IDs, instance IPs, etc.)
 
 # Data extraction (requires MIMIC-IV DB access)
 python src/data/extract.py --output data/raw/mimic_iv_fedcost.csv
@@ -105,8 +100,95 @@ python experiments/run_local_only.py
 python src/visualization/generate_all.py --results-dir results/metrics/ --output paper/figures/
 
 # Tests
-pytest tests/ -v
+uv sync --extra test             # Install test deps (pytest, boto3)
+pytest tests/ -v                 # Run all tests (unit pass, deployed skip)
+pytest tests/test_infra_unit.py -v                    # Mocked unit tests only (no AWS creds needed)
+pytest tests/test_infra_deployed.py -v --run-deployed  # Post-deploy smoke tests (needs AWS creds + deployed stack)
+pytest tests/ -v -W ignore::DeprecationWarning         # Suppress pulumi-aws deprecation noise
 ```
+
+### Test Suite
+
+Two test files in `tests/`:
+
+- **`test_infra_unit.py`** — 29 Pulumi mocked unit tests. Uses `pulumi.runtime.set_mocks()` (configured in `conftest.py`) to verify resource counts, CIDRs, instance types, tagging, IAM assume-role policies, SG egress rules, root volume config, and SSM parameter paths. Runs without AWS credentials.
+- **`test_infra_deployed.py`** — 15 boto3 smoke tests. Verifies live AWS resources after `pulumi up`: VPCs exist with correct CIDRs, EC2 instances running with correct types/profiles, S3 bucket has public access blocked, SSM parameters match stack outputs, SGs allow all outbound. Skipped by default; pass `--run-deployed` to enable.
+
+`conftest.py` handles: Pulumi mock setup (`FedCostMocks` class), `sys.path` injection for `infra/` imports, and the `--run-deployed` / `@pytest.mark.deployed` gating.
+
+### Deploying with Pulumi
+
+**Prerequisites:**
+- AWS CLI configured with an `ieee` profile (`aws configure --profile ieee`). This project always uses `AWS_PROFILE=ieee` — set in `.env` and in the Pulumi stack config (`aws:profile`).
+- Pulumi CLI installed (`curl -fsSL https://get.pulumi.com | sh`)
+- `PULUMI_CONFIG_PASSPHRASE` env var set (used to encrypt secrets in S3 backend — see `.env`)
+- Tailscale pre-auth key (generate at https://login.tailscale.com/admin/settings/keys — use reusable + ephemeral)
+- SSH public key for EC2 access
+
+**1. One-time backend + stack setup:**
+
+```bash
+# Login to S3 backend (stores state in s3://ieee-pulumi)
+pulumi login 's3://ieee-pulumi?region=ap-southeast-1&awssdk=v2'
+
+# Create a stack (e.g., "dev")
+cd infra/
+pulumi stack init dev
+```
+
+**2. Configure the stack:**
+
+```bash
+# Required config
+pulumi config set aws:profile ieee
+pulumi config set aws:region ap-southeast-1
+pulumi config set fedcost:ssh-public-key "ssh-rsa AAAA..."
+pulumi config set --secret fedcost:tailscale-auth-key "tskey-auth-..."
+
+# Optional overrides (defaults shown)
+pulumi config set fedcost:instance-type-hospital t3.medium
+pulumi config set fedcost:instance-type-fl-server t3.medium
+pulumi config set fedcost:instance-type-centralized t3.large
+```
+
+This creates `infra/Pulumi.dev.yaml` (gitignored — contains encrypted secrets).
+
+**3. Deploy:**
+
+```bash
+cd infra/
+pulumi preview               # Dry run — review what will be created
+pulumi up                    # Deploy (creates ~52 AWS resources)
+```
+
+Deploys: 5 VPCs + subnets + IGWs + route tables, 5 security groups, 3 IAM roles + instance profiles, 5 EC2 instances (with Tailscale + Python bootstrap via user-data), 1 S3 bucket, 2 SSM parameters.
+
+**4. Verify deployment:**
+
+```bash
+pulumi stack output --json                                    # All outputs
+pytest tests/test_infra_deployed.py -v --run-deployed         # Smoke tests
+```
+
+**5. Tear down:**
+
+```bash
+cd infra/
+pulumi destroy               # Remove all AWS resources
+pulumi stack rm dev           # Remove stack from backend (optional)
+```
+
+**Stack config reference** (`infra/config.py` → `FedCostConfig`):
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `aws:profile` | yes | — | AWS CLI profile (always `ieee`) |
+| `aws:region` | yes | — | AWS region |
+| `fedcost:ssh-public-key` | yes | — | SSH public key for EC2 KeyPair |
+| `fedcost:tailscale-auth-key` | yes (secret) | — | Tailscale pre-auth key |
+| `fedcost:instance-type-hospital` | no | `t3.medium` | EC2 type for 3 hospital nodes |
+| `fedcost:instance-type-fl-server` | no | `t3.medium` | EC2 type for FL aggregation server |
+| `fedcost:instance-type-centralized` | no | `t3.large` | EC2 type for centralized baselines |
 
 ## Key Technical Decisions
 

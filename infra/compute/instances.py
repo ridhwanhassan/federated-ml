@@ -10,6 +10,7 @@ from network.vpcs import VpcResources
 from security.iam import IamResources
 
 USER_DATA_DIR = Path(__file__).parent / "user_data"
+BASE_SCRIPT = (USER_DATA_DIR / "base.sh").read_text()
 
 INSTANCE_DEFINITIONS = [
     {
@@ -17,35 +18,30 @@ INSTANCE_DEFINITIONS = [
         "vpc_name": "fl-server",
         "iam_key": "fl-server",
         "user_data_template": "fl_server.sh",
-        "extra_env": {},
     },
     {
         "name": "hospital-a",
         "vpc_name": "hospital-a",
         "iam_key": "hospital",
         "user_data_template": "hospital.sh",
-        "extra_env": {"HOSPITAL_NAME": "hospital-a"},
     },
     {
         "name": "hospital-b",
         "vpc_name": "hospital-b",
         "iam_key": "hospital",
         "user_data_template": "hospital.sh",
-        "extra_env": {"HOSPITAL_NAME": "hospital-b"},
     },
     {
         "name": "hospital-c",
         "vpc_name": "hospital-c",
         "iam_key": "hospital",
         "user_data_template": "hospital.sh",
-        "extra_env": {"HOSPITAL_NAME": "hospital-c"},
     },
     {
         "name": "centralized",
-        "vpc_name": "centralized",
+        "vpc_name": "fl-server",
         "iam_key": "centralized",
         "user_data_template": "centralized.sh",
-        "extra_env": {},
     },
 ]
 
@@ -61,17 +57,22 @@ class InstanceResult:
 
 def _get_user_data(
     template_name: str,
+    node_name: str,
     tailscale_auth_key: pulumi.Output | str,
-    extra_env: dict[str, str],
 ) -> pulumi.Output:
-    """Read a user-data script and inject environment variables."""
-    script = (USER_DATA_DIR / template_name).read_text()
+    """Concatenate base.sh + role script and inject variables.
+
+    Variables replaced: ${TAILSCALE_AUTH_KEY}, ${NODE_NAME}.
+    """
+    role_script = (USER_DATA_DIR / template_name).read_text()
+    combined = BASE_SCRIPT + "\n" + role_script
 
     def _inject(ts_key: str) -> str:
-        result = script.replace("${TAILSCALE_AUTH_KEY}", ts_key)
-        for k, v in extra_env.items():
-            result = result.replace(f"${{{k}}}", v)
-        return result
+        return combined.replace(
+            "${TAILSCALE_AUTH_KEY}", ts_key
+        ).replace(
+            "${NODE_NAME}", node_name
+        )
 
     if isinstance(tailscale_auth_key, str):
         return pulumi.Output.from_input(_inject(tailscale_auth_key))
@@ -133,8 +134,8 @@ def create_instances(
 
         user_data = _get_user_data(
             defn["user_data_template"],
-            tailscale_auth_key,
-            defn["extra_env"],
+            node_name=name,
+            tailscale_auth_key=tailscale_auth_key,
         )
 
         instance = aws.ec2.Instance(

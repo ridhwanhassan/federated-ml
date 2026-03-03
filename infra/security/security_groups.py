@@ -9,7 +9,7 @@ import pulumi_aws as aws
 
 from network.vpcs import VpcResources
 
-ALL_VPC_NAMES = ["fl-server", "hospital-a", "hospital-b", "hospital-c", "centralized"]
+ALL_VPC_NAMES = ["fl-server", "hospital-a", "hospital-b", "hospital-c"]
 
 
 def create_security_groups(
@@ -35,9 +35,9 @@ def create_security_groups(
 
     for name in ALL_VPC_NAMES:
         sgs[name] = aws.ec2.SecurityGroup(
-            f"sg-{name}",
+            f"secgrp-{name}",
             vpc_id=vpcs[name].vpc.id,
-            description=f"fedcost-{name} — outbound only, Tailscale for ingress",
+            description=f"fedcost-{name} - outbound only, Tailscale for ingress",
             egress=[
                 aws.ec2.SecurityGroupEgressArgs(
                     protocol="-1",

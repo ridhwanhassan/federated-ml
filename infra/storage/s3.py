@@ -20,7 +20,7 @@ def create_data_bucket() -> aws.s3.BucketV2:
         tags={"Project": "fedcost", "Stack": stack},
     )
 
-    aws.s3.BucketPublicAccessBlockV2(
+    aws.s3.BucketPublicAccessBlock(
         "fedcost-data-public-access-block",
         bucket=bucket.id,
         block_public_acls=True,

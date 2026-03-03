@@ -1,6 +1,7 @@
 """FedCost AWS Infrastructure — Pulumi entry point."""
 
 import pulumi
+import pulumi_aws as aws
 
 from compute import create_instances, create_key_pair
 from config import load_config
@@ -8,6 +9,10 @@ from network import create_all_vpcs
 from security import create_iam_resources, create_security_groups
 from ssm import create_ssm_parameters
 from storage import create_data_bucket
+
+# Show deployment target
+caller = aws.get_caller_identity()
+print(f"Deploying to AWS account {caller.account_id} (region: {aws.get_region().name})")
 
 config = load_config()
 
