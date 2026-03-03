@@ -6,6 +6,7 @@ from compute import create_instances, create_key_pair
 from config import load_config
 from network import create_all_vpcs
 from security import create_iam_resources, create_security_groups
+from ssm import create_ssm_parameters
 from storage import create_data_bucket
 
 config = load_config()
@@ -35,6 +36,12 @@ instances = create_instances(
         "hospital-c": config.instance_type_hospital,
         "centralized": config.instance_type_centralized,
     },
+)
+
+# 5. SSM Parameters
+ssm_params = create_ssm_parameters(
+    fl_server_private_ip=instances["fl-server"].private_ip,
+    data_bucket_name=data_bucket.bucket,
 )
 
 # --- Exports ---
