@@ -15,13 +15,13 @@ def sample_features():
     return pd.DataFrame({
         "stay_id": [1, 2, 3, 4, 5, 6, 7],
         "first_careunit": [
-            "Medical ICU",          # H1
-            "Neuro Stepdown",       # H2
-            "Surgical ICU",         # H3
-            "Trauma SICU",          # H4
-            "Coronary Care Unit",   # H5
-            "MICU/SICU",            # H1
-            "Unknown Unit",         # H1 (default)
+            "Medical Intensive Care Unit (MICU)",                # H1
+            "Neuro Stepdown",                                    # H2
+            "Surgical Intensive Care Unit (SICU)",               # H3
+            "Trauma SICU (TSICU)",                               # H4
+            "Coronary Care Unit (CCU)",                          # H5
+            "Medical/Surgical Intensive Care Unit (MICU/SICU)",  # H1
+            "Unknown Unit",                                      # H1 (default)
         ],
         "los": [3.0, 2.0, 5.0, 1.0, 4.0, 2.0, 6.0],
         "anchor_age": [65, 72, 55, 80, 60, 70, 50],
@@ -30,11 +30,11 @@ def sample_features():
 
 
 def test_assign_hospital_known_units():
-    assert assign_hospital("Medical ICU") == 1
+    assert assign_hospital("Medical Intensive Care Unit (MICU)") == 1
     assert assign_hospital("Neuro Stepdown") == 2
-    assert assign_hospital("Surgical ICU") == 3
-    assert assign_hospital("Trauma SICU") == 4
-    assert assign_hospital("Coronary Care Unit") == 5
+    assert assign_hospital("Surgical Intensive Care Unit (SICU)") == 3
+    assert assign_hospital("Trauma SICU (TSICU)") == 4
+    assert assign_hospital("Coronary Care Unit (CCU)") == 5
 
 
 def test_assign_hospital_default_to_h1():

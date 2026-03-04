@@ -23,25 +23,19 @@ logger = logging.getLogger(__name__)
 
 HOSPITAL_PARTITION: dict[str, int] = {
     # H1 — Medical
-    "Medical ICU": 1,
-    "Med/Surg ICU": 1,
-    "MICU": 1,
-    "MICU/SICU": 1,
+    "Medical Intensive Care Unit (MICU)": 1,
+    "Medical/Surgical Intensive Care Unit (MICU/SICU)": 1,
     # H2 — Neuro
     "Neuro Intermediate": 2,
     "Neuro Stepdown": 2,
-    "Neuro SICU": 2,
+    "Neuro Surgical Intensive Care Unit (Neuro SICU)": 2,
     # H3 — Surgical
-    "Surgical ICU": 3,
-    "SICU": 3,
+    "Surgical Intensive Care Unit (SICU)": 3,
     # H4 — Trauma
-    "Trauma SICU": 4,
-    "TSICU": 4,
+    "Trauma SICU (TSICU)": 4,
     # H5 — Cardiac
-    "Coronary Care Unit": 5,
-    "CCU": 5,
-    "Cardiac Vascular ICU": 5,
-    "CVICU": 5,
+    "Coronary Care Unit (CCU)": 5,
+    "Cardiac Vascular Intensive Care Unit (CVICU)": 5,
 }
 
 DEFAULT_HOSPITAL: int = 1

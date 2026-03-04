@@ -377,13 +377,15 @@ def load_labevents_chunked(
         ]
         # Filter by subject_id + hadm_id pairs
         if len(filtered) > 0:
+            # Drop rows with NaN hadm_id (some labs lack admission link)
+            filtered = filtered.dropna(subset=["hadm_id"])
             subject_ids = {p[0] for p in subject_hadm_pairs}
             filtered = filtered.loc[filtered["subject_id"].isin(subject_ids)]
-            mask = filtered.apply(
-                lambda r: (int(r["subject_id"]), int(r["hadm_id"])) in subject_hadm_pairs,
-                axis=1,
-            )
-            filtered = filtered.loc[mask]
+            # Vectorized pair check (much faster than apply)
+            if len(filtered) > 0:
+                pair_keys = filtered["subject_id"].astype(int).astype(str) + "_" + filtered["hadm_id"].astype(int).astype(str)
+                valid_keys = {f"{s}_{h}" for s, h in subject_hadm_pairs}
+                filtered = filtered.loc[pair_keys.isin(valid_keys)]
         if len(filtered) > 0:
             chunks.append(filtered)
 
@@ -468,8 +470,9 @@ def main() -> None:
     )
 
     # Load chartevents and labevents in chunks
-    chartevents_path = _csv_path(args.raw_dir, "chartevents")
-    labevents_path = _csv_path(args.raw_dir, "labevents")
+    # MIMIC-IV layout: chartevents in icu/, labevents in hosp/
+    chartevents_path = _csv_path(args.raw_dir / "icu", "chartevents")
+    labevents_path = _csv_path(args.raw_dir / "hosp", "labevents")
 
     logger.info("Loading chartevents from %s (chunksize=%d)", chartevents_path, args.chunksize)
     chartevents = load_chartevents_chunked(chartevents_path, stay_ids, args.chunksize)
