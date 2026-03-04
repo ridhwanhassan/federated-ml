@@ -61,33 +61,47 @@ def iam_client():
 
 EXPECTED_VPC_NAMES = [
     "fl-server",
-    "hospital-a",
-    "hospital-b",
-    "hospital-c",
+    "hospital-1",
+    "hospital-2",
+    "hospital-3",
+    "hospital-4",
+    "hospital-5",
 ]
 
 EXPECTED_INSTANCE_NAMES = [
     "fl-server",
-    "hospital-a",
-    "hospital-b",
-    "hospital-c",
+    "hospital-1",
+    "hospital-2",
+    "hospital-3",
+    "hospital-4",
+    "hospital-5",
     "centralized",
 ]
 
 EXPECTED_CIDRS = {
     "fl-server": "10.0.0.0/16",
-    "hospital-a": "10.1.0.0/16",
-    "hospital-b": "10.2.0.0/16",
-    "hospital-c": "10.3.0.0/16",
+    "hospital-1": "10.1.0.0/16",
+    "hospital-2": "10.2.0.0/16",
+    "hospital-3": "10.3.0.0/16",
+    "hospital-4": "10.4.0.0/16",
+    "hospital-5": "10.5.0.0/16",
 }
+
+HOSPITAL_NAMES = [
+    "hospital-1",
+    "hospital-2",
+    "hospital-3",
+    "hospital-4",
+    "hospital-5",
+]
 
 
 @pytest.mark.deployed
 class TestVPCsDeployed:
-    def test_four_vpcs_exist(self, ec2_client, stack_outputs):
+    def test_six_vpcs_exist(self, ec2_client, stack_outputs):
         vpc_ids = [stack_outputs[f"vpc_{n}_id"] for n in EXPECTED_VPC_NAMES]
         resp = ec2_client.describe_vpcs(VpcIds=vpc_ids)
-        assert len(resp["Vpcs"]) == 4
+        assert len(resp["Vpcs"]) == 6
 
     def test_vpc_cidr_blocks(self, ec2_client, stack_outputs):
         for name, expected_cidr in EXPECTED_CIDRS.items():
@@ -113,16 +127,18 @@ class TestVPCsDeployed:
 
 EXPECTED_INSTANCE_TYPES = {
     "fl-server": "t3.medium",
-    "hospital-a": "t3.medium",
-    "hospital-b": "t3.medium",
-    "hospital-c": "t3.medium",
+    "hospital-1": "t3.medium",
+    "hospital-2": "t3.medium",
+    "hospital-3": "t3.medium",
+    "hospital-4": "t3.medium",
+    "hospital-5": "t3.medium",
     "centralized": "t3.large",
 }
 
 
 @pytest.mark.deployed
 class TestEC2Deployed:
-    def test_five_instances_running(self, ec2_client, stack_outputs):
+    def test_seven_instances_running(self, ec2_client, stack_outputs):
         instance_ids = [
             stack_outputs[f"ec2_{n}_id"] for n in EXPECTED_INSTANCE_NAMES
         ]
@@ -198,6 +214,16 @@ class TestS3Deployed:
 
 # ── SSM Tests ────────────────────────────────────────────────────────
 
+SSM_PARAM_PATHS = [
+    "/fedcost/flower-server-ip",
+    "/fedcost/s3-data-bucket",
+    "/fedcost/hospital-1-ip",
+    "/fedcost/hospital-2-ip",
+    "/fedcost/hospital-3-ip",
+    "/fedcost/hospital-4-ip",
+    "/fedcost/hospital-5-ip",
+]
+
 
 @pytest.mark.deployed
 class TestSSMDeployed:
@@ -217,8 +243,17 @@ class TestSSMDeployed:
             f"SSM s3-data-bucket: expected {expected}, got {value}"
         )
 
+    def test_hospital_ip_parameters(self, ssm_client, stack_outputs):
+        for name in HOSPITAL_NAMES:
+            resp = ssm_client.get_parameter(Name=f"/fedcost/{name}-ip")
+            value = resp["Parameter"]["Value"]
+            expected = stack_outputs[f"ec2_{name}_private_ip"]
+            assert value == expected, (
+                f"SSM {name}-ip: expected {expected}, got {value}"
+            )
+
     def test_parameters_are_string_type(self, ssm_client):
-        for path in ["/fedcost/flower-server-ip", "/fedcost/s3-data-bucket"]:
+        for path in SSM_PARAM_PATHS:
             resp = ssm_client.get_parameter(Name=path)
             assert resp["Parameter"]["Type"] == "String", (
                 f"SSM {path}: type is {resp['Parameter']['Type']}, expected String"

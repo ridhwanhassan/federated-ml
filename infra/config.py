@@ -16,12 +16,13 @@ class FedCostConfig:
     instance_type_centralized: str
     instance_type_fl_server: str
 
-    # VPC CIDR blocks
+    # VPC CIDR blocks (fl-server + 5 hospital VPCs)
     cidr_fl_server: str = "10.0.0.0/16"
-    cidr_hospital_a: str = "10.1.0.0/16"
-    cidr_hospital_b: str = "10.2.0.0/16"
-    cidr_hospital_c: str = "10.3.0.0/16"
-    cidr_centralized: str = "10.4.0.0/16"
+    cidr_hospital_1: str = "10.1.0.0/16"
+    cidr_hospital_2: str = "10.2.0.0/16"
+    cidr_hospital_3: str = "10.3.0.0/16"
+    cidr_hospital_4: str = "10.4.0.0/16"
+    cidr_hospital_5: str = "10.5.0.0/16"
 
 
 def load_config() -> FedCostConfig:
