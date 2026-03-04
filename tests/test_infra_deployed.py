@@ -299,3 +299,116 @@ class TestSecurityGroupsDeployed:
                 for perm in egress
             )
             assert all_outbound, f"SG in VPC {name}: no all-outbound rule"
+
+
+# ── S3 Data Verification Tests ──────────────────────────────────────
+
+
+@pytest.mark.deployed
+class TestS3DataDeployed:
+    """Verify partition data was uploaded to S3 correctly."""
+
+    def test_hospital_partitions_exist_in_s3(self, s3_client, stack_outputs):
+        """Each hospital-{1-5}.csv should exist in s3://bucket/partitions/."""
+        bucket = stack_outputs["data_bucket_name"]
+        for h in range(1, 6):
+            key = f"partitions/hospital-{h}.csv"
+            resp = s3_client.head_object(Bucket=bucket, Key=key)
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200, (
+                f"Missing s3://{bucket}/{key}"
+            )
+
+    def test_hospital_partitions_are_nonempty(self, s3_client, stack_outputs):
+        """Each partition CSV should have content (> 100 bytes header + data)."""
+        bucket = stack_outputs["data_bucket_name"]
+        for h in range(1, 6):
+            key = f"partitions/hospital-{h}.csv"
+            resp = s3_client.head_object(Bucket=bucket, Key=key)
+            size = resp["ContentLength"]
+            assert size > 100, (
+                f"s3://{bucket}/{key} is only {size} bytes — likely empty"
+            )
+
+    def test_raw_data_exists_for_centralized(self, s3_client, stack_outputs):
+        """At least one file should exist under s3://bucket/raw/."""
+        bucket = stack_outputs["data_bucket_name"]
+        resp = s3_client.list_objects_v2(Bucket=bucket, Prefix="raw/", MaxKeys=1)
+        assert resp.get("KeyCount", 0) > 0, (
+            f"No files under s3://{bucket}/raw/ — centralized instance has no data"
+        )
+
+
+# ── EC2 Data Download Verification Tests ────────────────────────────
+
+
+def _run_command_on_instance(
+    ssm_client, instance_id: str, command: str, timeout: int = 30
+) -> str:
+    """Run a shell command on an EC2 instance via SSM Run Command."""
+    import time
+
+    resp = ssm_client.send_command(
+        InstanceIds=[instance_id],
+        DocumentName="AWS-RunShellScript",
+        Parameters={"commands": [command]},
+        TimeoutSeconds=timeout,
+    )
+    command_id = resp["Command"]["CommandId"]
+
+    for _ in range(timeout):
+        time.sleep(1)
+        result = ssm_client.get_command_invocation(
+            CommandId=command_id, InstanceId=instance_id,
+        )
+        if result["Status"] in ("Success", "Failed", "TimedOut", "Cancelled"):
+            break
+
+    assert result["Status"] == "Success", (
+        f"SSM command failed on {instance_id}: {result.get('StandardErrorContent', '')}"
+    )
+    return result["StandardOutputContent"].strip()
+
+
+@pytest.mark.deployed
+class TestEC2DataDownloaded:
+    """Verify each EC2 instance has its data file after bootstrap."""
+
+    def test_hospital_instances_have_partition_csv(self, ssm_client, stack_outputs):
+        """Each hospital EC2 should have its CSV at /opt/fedcost/data/."""
+        for name in HOSPITAL_NAMES:
+            instance_id = stack_outputs[f"ec2_{name}_id"]
+            output = _run_command_on_instance(
+                ssm_client, instance_id,
+                f"ls -la /opt/fedcost/data/{name}.csv && wc -l /opt/fedcost/data/{name}.csv",
+            )
+            lines = output.strip().split("\n")
+            wc_line = lines[-1]
+            row_count = int(wc_line.split()[0])
+            assert row_count > 1, (
+                f"EC2 {name}: partition CSV has only {row_count} lines"
+            )
+
+    def test_centralized_instance_has_raw_data(self, ssm_client, stack_outputs):
+        """Centralized EC2 should have data files at /opt/fedcost/data/."""
+        instance_id = stack_outputs["ec2_centralized_id"]
+        output = _run_command_on_instance(
+            ssm_client, instance_id,
+            "ls /opt/fedcost/data/ | head -10",
+        )
+        assert len(output) > 0, (
+            "EC2 centralized: /opt/fedcost/data/ is empty"
+        )
+
+    def test_hospital_partition_has_expected_columns(self, ssm_client, stack_outputs):
+        """Spot-check that hospital-1 CSV has expected header columns."""
+        instance_id = stack_outputs["ec2_hospital-1_id"]
+        output = _run_command_on_instance(
+            ssm_client, instance_id,
+            "head -1 /opt/fedcost/data/hospital-1.csv",
+        )
+        assert "los" in output, (
+            f"EC2 hospital-1: CSV header missing 'los' column. Header: {output}"
+        )
+        assert "stay_id" in output or "anchor_age" in output, (
+            f"EC2 hospital-1: CSV header looks wrong. Header: {output}"
+        )
