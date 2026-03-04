@@ -161,21 +161,23 @@ def load_mimic_tables(raw_dir: Path) -> dict[str, pd.DataFrame]:
         diagnoses_icd, procedures_icd, drgcodes.
     """
     raw_dir = Path(raw_dir)
+    hosp = raw_dir / "hosp"
+    icu = raw_dir / "icu"
 
     logger.info("Loading MIMIC-IV tables from %s", raw_dir)
 
     icustays = pd.read_csv(
-        _csv_path(raw_dir, "icustays"),
+        _csv_path(icu, "icustays"),
         parse_dates=["intime", "outtime"],
     )
     admissions = pd.read_csv(
-        _csv_path(raw_dir, "admissions"),
+        _csv_path(hosp, "admissions"),
         parse_dates=["admittime", "dischtime"],
     )
-    patients = pd.read_csv(_csv_path(raw_dir, "patients"))
-    diagnoses_icd = pd.read_csv(_csv_path(raw_dir, "diagnoses_icd"))
-    procedures_icd = pd.read_csv(_csv_path(raw_dir, "procedures_icd"))
-    drgcodes = pd.read_csv(_csv_path(raw_dir, "drgcodes"))
+    patients = pd.read_csv(_csv_path(hosp, "patients"))
+    diagnoses_icd = pd.read_csv(_csv_path(hosp, "diagnoses_icd"))
+    procedures_icd = pd.read_csv(_csv_path(hosp, "procedures_icd"))
+    drgcodes = pd.read_csv(_csv_path(hosp, "drgcodes"))
 
     logger.info(
         "Loaded tables — icustays: %d, admissions: %d, patients: %d",
