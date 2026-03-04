@@ -1,0 +1,10 @@
+{
+  "terminal.integrated.env.windows": {
+    "AWS_PROFILE": "ieee",
+    "PULUMI_CONFIG_PASSPHRASE": "ieee"
+  },
+  "terminal.integrated.env.linux": {
+    "AWS_PROFILE": "ieee",
+    "PULUMI_CONFIG_PASSPHRASE": "ieee"
+  }
+}
