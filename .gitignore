@@ -158,3 +158,6 @@ cython_debug/
 # Pulumi stack configs (may contain encrypted secrets)
 infra/Pulumi.*.yaml
 !infra/Pulumi.yaml
+
+
+data/raw/
