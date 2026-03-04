@@ -52,7 +52,7 @@ def admissions() -> pd.DataFrame:
         {
             "hadm_id": [10, 20, 30, 40, 50],
             "subject_id": [1, 2, 3, 4, 5],
-            "ethnicity": ["WHITE", "BLACK", "ASIAN", "HISPANIC", "WHITE"],
+            "race": ["WHITE", "BLACK", "ASIAN", "HISPANIC", "WHITE"],
             "insurance": ["Medicare", "Medicaid", "Other", "Medicare", "Medicaid"],
             "admission_type": [
                 "EMERGENCY",
@@ -190,7 +190,7 @@ def test_extract_cohort_has_expected_columns(
         "hadm_id",
         "gender",
         "anchor_age",
-        "ethnicity",
+        "race",
         "insurance",
         "admission_type",
         "first_careunit",

@@ -21,7 +21,7 @@ def sample_cohort():
         "hadm_id": [100, 200],
         "gender": ["M", "F"],
         "anchor_age": [65, 72],
-        "ethnicity": ["WHITE", "BLACK/AFRICAN AMERICAN"],
+        "race": ["WHITE", "BLACK/AFRICAN AMERICAN"],
         "insurance": ["Medicare", "Medicaid"],
         "admission_type": ["EMERGENCY", "ELECTIVE"],
         "first_careunit": ["MICU", "SICU"],

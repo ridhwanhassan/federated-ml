@@ -209,7 +209,7 @@ def encode_categorical_features(cohort: pd.DataFrame) -> pd.DataFrame:
     Parameters
     ----------
     cohort : pd.DataFrame
-        Cohort table with categorical columns: ``gender``, ``ethnicity``,
+        Cohort table with categorical columns: ``gender``, ``race``,
         ``insurance``, ``admission_type``, ``drg_code``.
 
     Returns
@@ -224,10 +224,10 @@ def encode_categorical_features(cohort: pd.DataFrame) -> pd.DataFrame:
     df["gender"] = (df["gender"] == "M").astype(int)
 
     # Ethnicity: top-5 + OTHER, one-hot
-    top_eth = df["ethnicity"].value_counts().nlargest(5).index.tolist()
-    df["ethnicity"] = df["ethnicity"].where(df["ethnicity"].isin(top_eth), "OTHER")
-    eth_dummies = pd.get_dummies(df["ethnicity"], prefix="eth", dtype=int)
-    df = df.drop(columns=["ethnicity"])
+    top_eth = df["race"].value_counts().nlargest(5).index.tolist()
+    df["race"] = df["race"].where(df["race"].isin(top_eth), "OTHER")
+    eth_dummies = pd.get_dummies(df["race"], prefix="eth", dtype=int)
+    df = df.drop(columns=["race"])
     df = pd.concat([df, eth_dummies], axis=1)
 
     # Insurance: one-hot
@@ -423,6 +423,10 @@ def _csv_path(directory: Path, name: str) -> Path:
 
 def main() -> None:
     """CLI entry point for feature engineering."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
     parser = argparse.ArgumentParser(
         description="Run feature engineering on FedCost cohort."
     )

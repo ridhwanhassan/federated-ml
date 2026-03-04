@@ -21,7 +21,7 @@ COHORT_COLUMNS: list[str] = [
     "hadm_id",
     "gender",
     "anchor_age",
-    "ethnicity",
+    "race",
     "insurance",
     "admission_type",
     "first_careunit",
@@ -79,7 +79,7 @@ def extract_cohort(
     logger.info("After LOS filter (%.1f, %.1f]: %d stays", los_min, los_max, len(df))
 
     # --- Join admissions, exclude in-hospital deaths ---
-    adm_cols = ["hadm_id", "ethnicity", "insurance", "admission_type", "hospital_expire_flag"]
+    adm_cols = ["hadm_id", "race", "insurance", "admission_type", "hospital_expire_flag"]
     adm_subset = admissions[
         [c for c in adm_cols if c in admissions.columns]
     ].copy()
@@ -199,6 +199,10 @@ def load_mimic_tables(raw_dir: Path) -> dict[str, pd.DataFrame]:
 def main() -> None:
     """CLI entry point for cohort extraction."""
     import os
+
+    from dotenv import load_dotenv
+
+    load_dotenv()
 
     parser = argparse.ArgumentParser(
         description="Extract FedCost cohort from MIMIC-IV tables."
