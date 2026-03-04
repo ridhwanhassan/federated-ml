@@ -9,7 +9,14 @@ import pulumi_aws as aws
 
 from network.vpcs import VpcResources
 
-ALL_VPC_NAMES = ["fl-server", "hospital-a", "hospital-b", "hospital-c"]
+ALL_VPC_NAMES = [
+    "fl-server",
+    "hospital-1",
+    "hospital-2",
+    "hospital-3",
+    "hospital-4",
+    "hospital-5",
+]
 
 
 def create_security_groups(

@@ -20,20 +20,32 @@ INSTANCE_DEFINITIONS = [
         "user_data_template": "fl_server.sh",
     },
     {
-        "name": "hospital-a",
-        "vpc_name": "hospital-a",
+        "name": "hospital-1",
+        "vpc_name": "hospital-1",
         "iam_key": "hospital",
         "user_data_template": "hospital.sh",
     },
     {
-        "name": "hospital-b",
-        "vpc_name": "hospital-b",
+        "name": "hospital-2",
+        "vpc_name": "hospital-2",
         "iam_key": "hospital",
         "user_data_template": "hospital.sh",
     },
     {
-        "name": "hospital-c",
-        "vpc_name": "hospital-c",
+        "name": "hospital-3",
+        "vpc_name": "hospital-3",
+        "iam_key": "hospital",
+        "user_data_template": "hospital.sh",
+    },
+    {
+        "name": "hospital-4",
+        "vpc_name": "hospital-4",
+        "iam_key": "hospital",
+        "user_data_template": "hospital.sh",
+    },
+    {
+        "name": "hospital-5",
+        "vpc_name": "hospital-5",
         "iam_key": "hospital",
         "user_data_template": "hospital.sh",
     },
@@ -106,7 +118,7 @@ def create_instances(
     tailscale_auth_key: pulumi.Output | str,
     instance_types: dict[str, str],
 ) -> dict[str, InstanceResult]:
-    """Create all 5 FedCost EC2 instances.
+    """Create all 7 FedCost EC2 instances.
 
     Parameters
     ----------

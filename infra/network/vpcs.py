@@ -1,7 +1,7 @@
 """VPC definitions for FedCost infrastructure.
 
-Hospital VPCs use private subnets (with NAT Gateway for outbound).
-FL server and centralized VPCs use public subnets.
+5 hospital VPCs use private subnets (with NAT Gateway for outbound).
+FL server VPC uses a public subnet (also hosts centralized instance).
 """
 
 from dataclasses import dataclass, field
@@ -28,9 +28,11 @@ VPC_DEFINITIONS: list[dict] = [
     # Public subnet — EC2 gets public IP, direct IGW route
     {"name": "fl-server", "cidr": "10.0.0.0/16", "subnet_cidr": "10.0.1.0/24", "private": False},
     # Private subnets — EC2 has no public IP, outbound via NAT Gateway
-    {"name": "hospital-a", "cidr": "10.1.0.0/16", "subnet_cidr": "10.1.1.0/24", "private": True},
-    {"name": "hospital-b", "cidr": "10.2.0.0/16", "subnet_cidr": "10.2.1.0/24", "private": True},
-    {"name": "hospital-c", "cidr": "10.3.0.0/16", "subnet_cidr": "10.3.1.0/24", "private": True},
+    {"name": "hospital-1", "cidr": "10.1.0.0/16", "subnet_cidr": "10.1.1.0/24", "private": True},
+    {"name": "hospital-2", "cidr": "10.2.0.0/16", "subnet_cidr": "10.2.1.0/24", "private": True},
+    {"name": "hospital-3", "cidr": "10.3.0.0/16", "subnet_cidr": "10.3.1.0/24", "private": True},
+    {"name": "hospital-4", "cidr": "10.4.0.0/16", "subnet_cidr": "10.4.1.0/24", "private": True},
+    {"name": "hospital-5", "cidr": "10.5.0.0/16", "subnet_cidr": "10.5.1.0/24", "private": True},
 ]
 
 
@@ -182,10 +184,10 @@ def _create_private_vpc(name: str, cidr: str, subnet_cidr: str) -> VpcResources:
 
 
 def create_all_vpcs() -> dict[str, VpcResources]:
-    """Create all 4 FedCost VPCs.
+    """Create all 6 FedCost VPCs.
 
     - fl-server: public subnet (direct internet, also hosts centralized instance)
-    - hospital-a/b/c: private subnets (outbound via NAT Gateway)
+    - hospital-1 through hospital-5: private subnets (outbound via NAT Gateway)
 
     Returns
     -------

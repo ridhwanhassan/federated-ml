@@ -36,17 +36,31 @@ instances = create_instances(
     tailscale_auth_key=config.tailscale_auth_key,
     instance_types={
         "fl-server": config.instance_type_fl_server,
-        "hospital-a": config.instance_type_hospital,
-        "hospital-b": config.instance_type_hospital,
-        "hospital-c": config.instance_type_hospital,
+        "hospital-1": config.instance_type_hospital,
+        "hospital-2": config.instance_type_hospital,
+        "hospital-3": config.instance_type_hospital,
+        "hospital-4": config.instance_type_hospital,
+        "hospital-5": config.instance_type_hospital,
         "centralized": config.instance_type_centralized,
     },
 )
 
 # 5. SSM Parameters
+hospital_ips = {
+    name: instances[name].private_ip
+    for name in [
+        "hospital-1",
+        "hospital-2",
+        "hospital-3",
+        "hospital-4",
+        "hospital-5",
+    ]
+}
+
 ssm_params = create_ssm_parameters(
     fl_server_private_ip=instances["fl-server"].private_ip,
     data_bucket_name=data_bucket.bucket,
+    hospital_private_ips=hospital_ips,
 )
 
 # --- Exports ---

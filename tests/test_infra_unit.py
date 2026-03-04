@@ -58,16 +58,30 @@ instances = create_instances(
     tailscale_auth_key="tskey-auth-test123",
     instance_types={
         "fl-server": "t3.medium",
-        "hospital-a": "t3.medium",
-        "hospital-b": "t3.medium",
-        "hospital-c": "t3.medium",
+        "hospital-1": "t3.medium",
+        "hospital-2": "t3.medium",
+        "hospital-3": "t3.medium",
+        "hospital-4": "t3.medium",
+        "hospital-5": "t3.medium",
         "centralized": "t3.large",
     },
 )
 
+hospital_ips = {
+    name: instances[name].private_ip
+    for name in [
+        "hospital-1",
+        "hospital-2",
+        "hospital-3",
+        "hospital-4",
+        "hospital-5",
+    ]
+}
+
 ssm_params = create_ssm_parameters(
     fl_server_private_ip=instances["fl-server"].private_ip,
     data_bucket_name=data_bucket.bucket,
+    hospital_private_ips=hospital_ips,
 )
 
 
@@ -75,33 +89,49 @@ ssm_params = create_ssm_parameters(
 
 EXPECTED_VPCS = {
     "fl-server",
-    "hospital-a",
-    "hospital-b",
-    "hospital-c",
+    "hospital-1",
+    "hospital-2",
+    "hospital-3",
+    "hospital-4",
+    "hospital-5",
 }
 
 EXPECTED_INSTANCES = {
     "fl-server",
-    "hospital-a",
-    "hospital-b",
-    "hospital-c",
+    "hospital-1",
+    "hospital-2",
+    "hospital-3",
+    "hospital-4",
+    "hospital-5",
     "centralized",
 }
 
 EXPECTED_CIDRS = {
     "fl-server": "10.0.0.0/16",
-    "hospital-a": "10.1.0.0/16",
-    "hospital-b": "10.2.0.0/16",
-    "hospital-c": "10.3.0.0/16",
+    "hospital-1": "10.1.0.0/16",
+    "hospital-2": "10.2.0.0/16",
+    "hospital-3": "10.3.0.0/16",
+    "hospital-4": "10.4.0.0/16",
+    "hospital-5": "10.5.0.0/16",
 }
 
 EXPECTED_INSTANCE_TYPES = {
     "fl-server": "t3.medium",
-    "hospital-a": "t3.medium",
-    "hospital-b": "t3.medium",
-    "hospital-c": "t3.medium",
+    "hospital-1": "t3.medium",
+    "hospital-2": "t3.medium",
+    "hospital-3": "t3.medium",
+    "hospital-4": "t3.medium",
+    "hospital-5": "t3.medium",
     "centralized": "t3.large",
 }
+
+HOSPITAL_NAMES = [
+    "hospital-1",
+    "hospital-2",
+    "hospital-3",
+    "hospital-4",
+    "hospital-5",
+]
 
 
 # ── Storage ──────────────────────────────────────────────────────────
@@ -131,8 +161,8 @@ class TestS3Bucket:
 
 
 class TestVPCs:
-    def test_four_vpcs_created(self):
-        assert len(vpcs) == 4
+    def test_six_vpcs_created(self):
+        assert len(vpcs) == 6
 
     def test_expected_vpc_names(self):
         assert set(vpcs.keys()) == EXPECTED_VPCS
@@ -171,7 +201,7 @@ class TestVPCs:
         return pulumi.Output.all(*checks)
 
     def test_hospital_vpcs_are_private(self):
-        for name in ("hospital-a", "hospital-b", "hospital-c"):
+        for name in HOSPITAL_NAMES:
             assert vpcs[name].is_private is True, f"{name} should be private"
             assert vpcs[name].nat_gateway is not None, f"{name} missing NAT GW"
 
@@ -187,7 +217,7 @@ class TestVPCs:
     @pulumi.runtime.test
     def test_private_subnets_no_public_ip(self):
         checks = []
-        for name in ("hospital-a", "hospital-b", "hospital-c"):
+        for name in HOSPITAL_NAMES:
             checks.append(
                 vpcs[name].subnet.map_public_ip_on_launch.apply(
                     _make_eq_check(False, f"Subnet {name} should not map public IP")
@@ -211,8 +241,8 @@ class TestVPCs:
 
 
 class TestSecurityGroups:
-    def test_four_sgs_created(self):
-        assert len(sgs) == 4
+    def test_six_sgs_created(self):
+        assert len(sgs) == 6
 
     def test_expected_sg_names(self):
         assert set(sgs.keys()) == EXPECTED_VPCS
@@ -295,8 +325,8 @@ class TestIAM:
 
 
 class TestEC2Instances:
-    def test_five_instances_created(self):
-        assert len(instances) == 5
+    def test_seven_instances_created(self):
+        assert len(instances) == 7
 
     def test_expected_instance_names(self):
         assert set(instances.keys()) == EXPECTED_INSTANCES
@@ -372,12 +402,20 @@ class TestEC2Instances:
 
 
 class TestSSMParameters:
-    def test_two_parameters_created(self):
-        assert len(ssm_params) == 2
+    def test_seven_parameters_created(self):
+        assert len(ssm_params) == 7
 
     @pulumi.runtime.test
     def test_parameter_paths(self):
-        expected = {"/fedcost/flower-server-ip", "/fedcost/s3-data-bucket"}
+        expected = {
+            "/fedcost/flower-server-ip",
+            "/fedcost/s3-data-bucket",
+            "/fedcost/hospital-1-ip",
+            "/fedcost/hospital-2-ip",
+            "/fedcost/hospital-3-ip",
+            "/fedcost/hospital-4-ip",
+            "/fedcost/hospital-5-ip",
+        }
 
         def check(names):
             assert set(names) == expected
