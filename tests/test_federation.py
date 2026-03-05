@@ -7,7 +7,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from src.models.mlp import LOSModel
-from src.federation.fedavg import weighted_average_state_dicts
+from src.federation.fedavg import run_fedavg, weighted_average_state_dicts
 
 
 class TestWeightedAverageStateDicts:
@@ -55,3 +55,65 @@ class TestWeightedAverageStateDicts:
         avg = weighted_average_state_dicts([m1.state_dict()], weights=[1.0])
         for key in avg:
             assert torch.equal(avg[key], orig[key])
+
+
+def _make_hospital_loaders(n_hospitals=5, n_samples=80, n_features=10, seed=42):
+    """Create synthetic hospital DataLoader pairs for testing."""
+    torch.manual_seed(seed)
+    loaders = []
+    for i in range(n_hospitals):
+        n = n_samples + i * 10  # Vary sizes for weighted avg
+        X = torch.randn(n, n_features)
+        y = torch.randn(n).abs() * 5
+        n_train = int(n * 0.8)
+        train_ds = TensorDataset(X[:n_train], y[:n_train])
+        val_ds = TensorDataset(X[n_train:], y[n_train:])
+        train_loader = DataLoader(train_ds, batch_size=16, shuffle=True)
+        val_loader = DataLoader(val_ds, batch_size=16)
+        loaders.append((train_loader, val_loader))
+    return loaders
+
+
+class TestRunFedAvg:
+    def test_returns_expected_keys(self):
+        """Result should have round_metrics, per_hospital_metrics, etc."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
+        result = run_fedavg(loaders, n_features=5, n_rounds=2, local_epochs=1)
+        assert "round_metrics" in result
+        assert "per_hospital_metrics" in result
+        assert "final_global_metrics" in result
+        assert "communication_cost" in result
+
+    def test_round_metrics_length(self):
+        """Should have one entry per round."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
+        result = run_fedavg(loaders, n_features=5, n_rounds=3, local_epochs=1)
+        assert len(result["round_metrics"]) == 3
+
+    def test_round_metrics_structure(self):
+        """Each round metric should have mae, rmse, r2."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
+        result = run_fedavg(loaders, n_features=5, n_rounds=2, local_epochs=1)
+        for m in result["round_metrics"]:
+            assert set(m.keys()) == {"mae", "rmse", "r2"}
+
+    def test_per_hospital_metrics_shape(self):
+        """per_hospital_metrics[round][hospital] should have metrics."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
+        result = run_fedavg(loaders, n_features=5, n_rounds=2, local_epochs=1)
+        assert len(result["per_hospital_metrics"]) == 2  # n_rounds
+        assert len(result["per_hospital_metrics"][0]) == 3  # n_hospitals
+
+    def test_mae_improves_over_rounds(self):
+        """Global MAE should generally improve over rounds."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=100, n_features=5)
+        result = run_fedavg(loaders, n_features=5, n_rounds=10, local_epochs=2, lr=1e-2)
+        first_mae = result["round_metrics"][0]["mae"]
+        last_mae = result["round_metrics"][-1]["mae"]
+        assert last_mae < first_mae
+
+    def test_communication_cost_positive(self):
+        """Communication cost should be positive."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
+        result = run_fedavg(loaders, n_features=5, n_rounds=2, local_epochs=1)
+        assert result["communication_cost"] > 0
