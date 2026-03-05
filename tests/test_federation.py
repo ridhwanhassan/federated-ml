@@ -117,3 +117,53 @@ class TestRunFedAvg:
         loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
         result = run_fedavg(loaders, n_features=5, n_rounds=2, local_epochs=1)
         assert result["communication_cost"] > 0
+
+
+from src.federation.gossip import build_mixing_matrix
+
+
+class TestBuildMixingMatrix:
+    def test_shape(self):
+        """Matrix should be N x N."""
+        W = build_mixing_matrix(5)
+        assert W.shape == (5, 5)
+
+    def test_doubly_stochastic(self):
+        """Rows and columns should sum to 1."""
+        W = build_mixing_matrix(5)
+        np.testing.assert_allclose(W.sum(axis=0), 1.0, atol=1e-10)
+        np.testing.assert_allclose(W.sum(axis=1), 1.0, atol=1e-10)
+
+    def test_symmetric(self):
+        """MH matrix for ring should be symmetric."""
+        W = build_mixing_matrix(5)
+        np.testing.assert_allclose(W, W.T, atol=1e-10)
+
+    def test_ring_neighbors(self):
+        """Each node should have non-zero weights only for self and 2 neighbors."""
+        W = build_mixing_matrix(5)
+        for i in range(5):
+            left = (i - 1) % 5
+            right = (i + 1) % 5
+            for j in range(5):
+                if j in (i, left, right):
+                    assert W[i, j] > 0
+                else:
+                    assert W[i, j] == 0.0
+
+    def test_equal_weights_for_ring(self):
+        """For a ring (all degree 2), weights should be 1/3."""
+        W = build_mixing_matrix(5)
+        for i in range(5):
+            left = (i - 1) % 5
+            right = (i + 1) % 5
+            assert W[i, i] == pytest.approx(1.0 / 3.0)
+            assert W[i, left] == pytest.approx(1.0 / 3.0)
+            assert W[i, right] == pytest.approx(1.0 / 3.0)
+
+    def test_different_sizes(self):
+        """Should work for different ring sizes."""
+        for n in [3, 4, 7]:
+            W = build_mixing_matrix(n)
+            assert W.shape == (n, n)
+            np.testing.assert_allclose(W.sum(axis=1), 1.0, atol=1e-10)
