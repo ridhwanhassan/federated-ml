@@ -111,3 +111,44 @@ def train_one_epoch(
         total_loss += loss.item()
         n_batches += 1
     return total_loss / max(n_batches, 1)
+
+
+@torch.no_grad()
+def evaluate(
+    model: nn.Module,
+    loader: DataLoader,
+    device: torch.device | str = "cpu",
+) -> dict[str, float]:
+    """Evaluate the model on a DataLoader.
+
+    Parameters
+    ----------
+    model : nn.Module
+        The model to evaluate.
+    loader : DataLoader
+        Validation/test data loader.
+    device : torch.device or str, optional
+        Device to run on, by default ``"cpu"``.
+
+    Returns
+    -------
+    dict[str, float]
+        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``.
+    """
+    model.eval()
+    model.to(device)
+    all_preds = []
+    all_targets = []
+    for X_batch, y_batch in loader:
+        X_batch = X_batch.to(device)
+        preds = model(X_batch).squeeze(-1)
+        all_preds.append(preds.cpu().numpy())
+        all_targets.append(y_batch.numpy())
+
+    y_pred = np.concatenate(all_preds)
+    y_true = np.concatenate(all_targets)
+
+    mae = float(mean_absolute_error(y_true, y_pred))
+    rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+    r2 = float(r2_score(y_true, y_pred))
+    return {"mae": mae, "rmse": rmse, "r2": r2}

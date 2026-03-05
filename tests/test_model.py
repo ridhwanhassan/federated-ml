@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from src.models.mlp import LOSModel, train_one_epoch
+from src.models.mlp import LOSModel, evaluate, train_one_epoch
 
 
 class TestLOSModel:
@@ -107,3 +107,41 @@ class TestTrainOneEpoch:
             for n, p in model.named_parameters()
         )
         assert changed
+
+
+class TestEvaluate:
+    def test_returns_metric_dict(self, synthetic_loader):
+        """Should return dict with mae, rmse, r2 keys."""
+        model = LOSModel(n_features=10)
+        metrics = evaluate(model, synthetic_loader)
+        assert set(metrics.keys()) == {"mae", "rmse", "r2"}
+
+    def test_metrics_are_floats(self, synthetic_loader):
+        """All metric values should be Python floats."""
+        model = LOSModel(n_features=10)
+        metrics = evaluate(model, synthetic_loader)
+        for v in metrics.values():
+            assert isinstance(v, float)
+
+    def test_mae_nonnegative(self, synthetic_loader):
+        """MAE should always be >= 0."""
+        model = LOSModel(n_features=10)
+        metrics = evaluate(model, synthetic_loader)
+        assert metrics["mae"] >= 0
+
+    def test_rmse_ge_mae(self, synthetic_loader):
+        """RMSE >= MAE always holds."""
+        model = LOSModel(n_features=10)
+        metrics = evaluate(model, synthetic_loader)
+        assert metrics["rmse"] >= metrics["mae"] - 1e-6
+
+    def test_metrics_improve_after_training(self, synthetic_loader):
+        """MAE should improve after training on the same data."""
+        model = LOSModel(n_features=10)
+        mae_before = evaluate(model, synthetic_loader)["mae"]
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        criterion = nn.HuberLoss(delta=5.0)
+        for _ in range(30):
+            train_one_epoch(model, synthetic_loader, optimizer, criterion)
+        mae_after = evaluate(model, synthetic_loader)["mae"]
+        assert mae_after < mae_before
