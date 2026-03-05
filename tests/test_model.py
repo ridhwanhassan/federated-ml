@@ -2,8 +2,10 @@
 
 import pytest
 import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
-from src.models.mlp import LOSModel
+from src.models.mlp import LOSModel, train_one_epoch
 
 
 class TestLOSModel:
@@ -60,3 +62,48 @@ class TestLOSModel:
             out1 = model(x)
             out2 = model(x)
         assert torch.equal(out1, out2)
+
+
+@pytest.fixture
+def synthetic_loader():
+    """Create a small synthetic DataLoader for smoke tests."""
+    torch.manual_seed(42)
+    X = torch.randn(100, 10)
+    y = torch.randn(100, 1).abs() * 5  # Positive LOS values
+    ds = TensorDataset(X, y.squeeze())
+    return DataLoader(ds, batch_size=16, shuffle=True)
+
+
+class TestTrainOneEpoch:
+    def test_returns_float(self, synthetic_loader):
+        """Should return average loss as a float."""
+        model = LOSModel(n_features=10)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        criterion = nn.HuberLoss(delta=5.0)
+        loss = train_one_epoch(model, synthetic_loader, optimizer, criterion)
+        assert isinstance(loss, float)
+        assert loss > 0
+
+    def test_loss_decreases(self, synthetic_loader):
+        """Loss should decrease over multiple epochs."""
+        model = LOSModel(n_features=10)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        criterion = nn.HuberLoss(delta=5.0)
+        loss_first = train_one_epoch(model, synthetic_loader, optimizer, criterion)
+        for _ in range(19):
+            train_one_epoch(model, synthetic_loader, optimizer, criterion)
+        loss_last = train_one_epoch(model, synthetic_loader, optimizer, criterion)
+        assert loss_last < loss_first
+
+    def test_model_params_change(self, synthetic_loader):
+        """Model parameters should be updated after training."""
+        model = LOSModel(n_features=10)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        criterion = nn.HuberLoss(delta=5.0)
+        params_before = {n: p.clone() for n, p in model.named_parameters()}
+        train_one_epoch(model, synthetic_loader, optimizer, criterion)
+        changed = any(
+            not torch.equal(params_before[n], p)
+            for n, p in model.named_parameters()
+        )
+        assert changed

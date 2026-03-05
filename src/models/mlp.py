@@ -67,3 +67,47 @@ class LOSModel(nn.Module):
             Predicted LOS of shape ``(batch_size, 1)``.
         """
         return self.net(x)
+
+
+def train_one_epoch(
+    model: nn.Module,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    criterion: nn.Module,
+    device: torch.device | str = "cpu",
+) -> float:
+    """Train for one epoch over the given DataLoader.
+
+    Parameters
+    ----------
+    model : nn.Module
+        The model to train.
+    loader : DataLoader
+        Training data loader yielding ``(X_batch, y_batch)`` tuples.
+    optimizer : torch.optim.Optimizer
+        Optimizer instance.
+    criterion : nn.Module
+        Loss function (e.g. ``nn.HuberLoss``).
+    device : torch.device or str, optional
+        Device to run on, by default ``"cpu"``.
+
+    Returns
+    -------
+    float
+        Average loss over the epoch.
+    """
+    model.train()
+    model.to(device)
+    total_loss = 0.0
+    n_batches = 0
+    for X_batch, y_batch in loader:
+        X_batch = X_batch.to(device)
+        y_batch = y_batch.to(device)
+        optimizer.zero_grad()
+        preds = model(X_batch).squeeze(-1)
+        loss = criterion(preds, y_batch)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+        n_batches += 1
+    return total_loss / max(n_batches, 1)
