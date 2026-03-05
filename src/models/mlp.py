@@ -152,3 +152,93 @@ def evaluate(
     rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
     r2 = float(r2_score(y_true, y_pred))
     return {"mae": mae, "rmse": rmse, "r2": r2}
+
+
+def train_model(
+    model: nn.Module,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    n_epochs: int = 100,
+    lr: float = 1e-3,
+    weight_decay: float = 1e-4,
+    huber_delta: float = 5.0,
+    patience: int = 10,
+    device: torch.device | str = "cpu",
+) -> dict:
+    """Full training loop with Adam, ReduceLROnPlateau, and early stopping.
+
+    Used by centralized and local-only baselines. Federation code uses
+    train_one_epoch() and evaluate() directly.
+
+    Parameters
+    ----------
+    model : nn.Module
+        The model to train.
+    train_loader : DataLoader
+        Training data loader.
+    val_loader : DataLoader
+        Validation data loader.
+    n_epochs : int, optional
+        Maximum number of epochs, by default 100.
+    lr : float, optional
+        Learning rate for Adam, by default 1e-3.
+    weight_decay : float, optional
+        Weight decay for Adam, by default 1e-4.
+    huber_delta : float, optional
+        Delta parameter for HuberLoss, by default 5.0.
+    patience : int, optional
+        Early stopping patience (epochs without val MAE improvement),
+        by default 10.
+    device : torch.device or str, optional
+        Device to run on, by default ``"cpu"``.
+
+    Returns
+    -------
+    dict
+        ``{"train_losses": list[float], "val_metrics": list[dict],
+        "best_val_mae": float}``
+    """
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.5, patience=patience // 2,
+    )
+    criterion = nn.HuberLoss(delta=huber_delta)
+
+    train_losses: list[float] = []
+    val_metrics_history: list[dict[str, float]] = []
+    best_val_mae = float("inf")
+    best_state = None
+    epochs_without_improvement = 0
+
+    for epoch in range(n_epochs):
+        loss = train_one_epoch(model, train_loader, optimizer, criterion, device)
+        metrics = evaluate(model, val_loader, device)
+
+        train_losses.append(loss)
+        val_metrics_history.append(metrics)
+        scheduler.step(metrics["mae"])
+
+        if metrics["mae"] < best_val_mae:
+            best_val_mae = metrics["mae"]
+            best_state = {k: v.clone() for k, v in model.state_dict().items()}
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+
+        logger.info(
+            "Epoch %d/%d — train_loss=%.4f, val_mae=%.4f, val_r2=%.4f",
+            epoch + 1, n_epochs, loss, metrics["mae"], metrics["r2"],
+        )
+
+        if epochs_without_improvement >= patience:
+            logger.info("Early stopping at epoch %d", epoch + 1)
+            break
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+
+    return {
+        "train_losses": train_losses,
+        "val_metrics": val_metrics_history,
+        "best_val_mae": best_val_mae,
+    }

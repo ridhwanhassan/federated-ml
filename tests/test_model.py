@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from src.models.mlp import LOSModel, evaluate, train_one_epoch
+from src.models.mlp import LOSModel, evaluate, train_model, train_one_epoch
 
 
 class TestLOSModel:
@@ -145,3 +145,75 @@ class TestEvaluate:
             train_one_epoch(model, synthetic_loader, optimizer, criterion)
         mae_after = evaluate(model, synthetic_loader)["mae"]
         assert mae_after < mae_before
+
+
+@pytest.fixture
+def synthetic_train_val():
+    """Create train and val DataLoaders from synthetic data."""
+    torch.manual_seed(42)
+    X = torch.randn(200, 10)
+    y = torch.randn(200, 1).abs() * 5
+    train_ds = TensorDataset(X[:160], y[:160].squeeze())
+    val_ds = TensorDataset(X[160:], y[160:].squeeze())
+    train_loader = DataLoader(train_ds, batch_size=32, shuffle=True)
+    val_loader = DataLoader(val_ds, batch_size=32)
+    return train_loader, val_loader
+
+
+class TestTrainModel:
+    def test_returns_result_dict(self, synthetic_train_val):
+        """Should return dict with expected keys."""
+        train_loader, val_loader = synthetic_train_val
+        model = LOSModel(n_features=10)
+        result = train_model(model, train_loader, val_loader, n_epochs=5)
+        assert "train_losses" in result
+        assert "val_metrics" in result
+        assert "best_val_mae" in result
+
+    def test_train_losses_length(self, synthetic_train_val):
+        """train_losses has one entry per epoch."""
+        train_loader, val_loader = synthetic_train_val
+        model = LOSModel(n_features=10)
+        result = train_model(model, train_loader, val_loader, n_epochs=5, patience=10)
+        assert len(result["train_losses"]) == 5
+
+    def test_val_metrics_structure(self, synthetic_train_val):
+        """val_metrics is list of dicts with mae/rmse/r2."""
+        train_loader, val_loader = synthetic_train_val
+        model = LOSModel(n_features=10)
+        result = train_model(model, train_loader, val_loader, n_epochs=3, patience=10)
+        assert len(result["val_metrics"]) == 3
+        for m in result["val_metrics"]:
+            assert set(m.keys()) == {"mae", "rmse", "r2"}
+
+    def test_uses_huber_loss(self, synthetic_train_val):
+        """Default should use Huber loss (not MSE)."""
+        train_loader, val_loader = synthetic_train_val
+        model = LOSModel(n_features=10)
+        result_large = train_model(
+            model, train_loader, val_loader, n_epochs=3, huber_delta=1000.0, patience=10
+        )
+        model2 = LOSModel(n_features=10)
+        result_small = train_model(
+            model2, train_loader, val_loader, n_epochs=3, huber_delta=1.0, patience=10
+        )
+        # Both should run without error; losses will differ
+        assert result_large["train_losses"][-1] != result_small["train_losses"][-1]
+
+    def test_early_stopping(self, synthetic_train_val):
+        """Should stop before n_epochs if val MAE doesn't improve."""
+        train_loader, val_loader = synthetic_train_val
+        model = LOSModel(n_features=10)
+        result = train_model(
+            model, train_loader, val_loader,
+            n_epochs=200, patience=3, lr=1e-6,
+        )
+        assert len(result["train_losses"]) < 200
+
+    def test_best_val_mae_is_minimum(self, synthetic_train_val):
+        """best_val_mae should be the minimum across all epochs."""
+        train_loader, val_loader = synthetic_train_val
+        model = LOSModel(n_features=10)
+        result = train_model(model, train_loader, val_loader, n_epochs=10, patience=15)
+        all_maes = [m["mae"] for m in result["val_metrics"]]
+        assert result["best_val_mae"] == pytest.approx(min(all_maes))
