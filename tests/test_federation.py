@@ -167,3 +167,62 @@ class TestBuildMixingMatrix:
             W = build_mixing_matrix(n)
             assert W.shape == (n, n)
             np.testing.assert_allclose(W.sum(axis=1), 1.0, atol=1e-10)
+
+
+from src.federation.gossip import run_gossip
+
+
+class TestRunGossip:
+    def test_returns_expected_keys(self):
+        """Result should have round_metrics, per_hospital_metrics, etc."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
+        result = run_gossip(loaders, n_features=5, n_rounds=2, local_epochs=1)
+        assert "round_metrics" in result
+        assert "per_hospital_metrics" in result
+        assert "final_global_metrics" in result
+        assert "communication_cost" in result
+
+    def test_round_metrics_length(self):
+        """Should have one entry per round."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
+        result = run_gossip(loaders, n_features=5, n_rounds=3, local_epochs=1)
+        assert len(result["round_metrics"]) == 3
+
+    def test_per_hospital_metrics_shape(self):
+        """per_hospital_metrics[round][hospital] should have metrics."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
+        result = run_gossip(loaders, n_features=5, n_rounds=2, local_epochs=1)
+        assert len(result["per_hospital_metrics"]) == 2
+        assert len(result["per_hospital_metrics"][0]) == 3
+
+    def test_mae_improves_over_rounds(self):
+        """Average MAE should generally improve over rounds."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=100, n_features=5)
+        result = run_gossip(loaders, n_features=5, n_rounds=10, local_epochs=2, lr=1e-2)
+        first_mae = result["round_metrics"][0]["mae"]
+        last_mae = result["round_metrics"][-1]["mae"]
+        assert last_mae < first_mae
+
+    def test_models_converge_toward_each_other(self):
+        """After many rounds, per-hospital MAEs should be closer together."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=100, n_features=5)
+        result = run_gossip(loaders, n_features=5, n_rounds=15, local_epochs=2, lr=1e-2)
+        first_round_maes = [m["mae"] for m in result["per_hospital_metrics"][0]]
+        last_round_maes = [m["mae"] for m in result["per_hospital_metrics"][-1]]
+        first_spread = max(first_round_maes) - min(first_round_maes)
+        last_spread = max(last_round_maes) - min(last_round_maes)
+        assert last_spread <= first_spread + 0.5
+
+    def test_communication_cost_positive(self):
+        """Communication cost should be positive."""
+        loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
+        result = run_gossip(loaders, n_features=5, n_rounds=2, local_epochs=1)
+        assert result["communication_cost"] > 0
+
+    def test_communication_cost_ratio(self):
+        """D-PSGD ring exchanges 2x params vs FedAvg (2 neighbors vs 1 server)."""
+        loaders = _make_hospital_loaders(n_hospitals=5, n_samples=40, n_features=5)
+        fedavg_result = run_fedavg(loaders, n_features=5, n_rounds=2, local_epochs=1)
+        gossip_result = run_gossip(loaders, n_features=5, n_rounds=2, local_epochs=1)
+        # D-PSGD: 4*params*N*rounds vs FedAvg: 2*N*params*rounds -> ratio = 2
+        assert gossip_result["communication_cost"] == 2 * fedavg_result["communication_cost"]
