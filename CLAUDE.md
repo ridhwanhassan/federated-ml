@@ -240,7 +240,7 @@ pulumi stack rm dev           # Remove stack from backend (optional)
 5. Local-only (×5) — each hospital trains independently (lower bound)
 
 ### Evaluation
-- LOS regression: MAE, RMSE, R²
+- LOS regression: MAE, RMSE, R², Within-1-day accuracy (%predictions within 1 day of true LOS)
 - Convergence: rounds to reach 95% of centralized MAE
 - Communication cost: total model parameters exchanged (FedAvg: 2×N×params/round; D-PSGD: 2×2×params/node/round)
 - Fairness: per-hospital MAE variance (std across 5 hospitals)
@@ -303,7 +303,7 @@ pulumi stack rm dev           # Remove stack from backend (optional)
 4. Fairness analysis: do smaller/specialized hospitals benefit differently from each topology?
 
 ### Tables & Figures
-- **Table I:** Main comparison — MAE, RMSE, R² for all 5 experiments
+- **Table I:** Main comparison — MAE, RMSE, R², Within-1-day % for all 5 experiments
 - **Table II:** Per-hospital breakdown — FedAvg vs D-PSGD vs local-only per hospital
 - **Figure 1:** Architecture diagram (star vs ring topology)
 - **Figure 2:** Convergence curves (MAE vs communication rounds)

@@ -133,7 +133,7 @@ def evaluate(
     Returns
     -------
     dict[str, float]
-        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``.
+        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``, ``"within_1day"``.
     """
     model.eval()
     model.to(device)
@@ -151,7 +151,8 @@ def evaluate(
     mae = float(mean_absolute_error(y_true, y_pred))
     rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
     r2 = float(r2_score(y_true, y_pred))
-    return {"mae": mae, "rmse": rmse, "r2": r2}
+    within_1day = float(np.mean(np.abs(y_true - y_pred) <= 1.0))
+    return {"mae": mae, "rmse": rmse, "r2": r2, "within_1day": within_1day}
 
 
 def train_model(
@@ -226,8 +227,8 @@ def train_model(
             epochs_without_improvement += 1
 
         logger.info(
-            "Epoch %d/%d — train_loss=%.4f, val_mae=%.4f, val_r2=%.4f",
-            epoch + 1, n_epochs, loss, metrics["mae"], metrics["r2"],
+            "Epoch %d/%d — train_loss=%.4f, val_mae=%.4f, val_r2=%.4f, val_within_1day=%.4f",
+            epoch + 1, n_epochs, loss, metrics["mae"], metrics["r2"], metrics["within_1day"],
         )
 
         if epochs_without_improvement >= patience:

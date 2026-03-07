@@ -322,17 +322,19 @@ def generate_table_i_latex(raw: dict, output_dir: Path) -> None:
         r"\begin{table}[t]",
         r"\centering",
         r"\caption{Main comparison of all training strategies. "
-        r"MAE and RMSE in days; R$^2$ dimensionless. "
+        r"MAE and RMSE in days; R$^2$ dimensionless; "
+        r"W-1d is \% of predictions within 1 day of true LOS. "
         r"Mean $\pm$ std over 5 seeds.}",
         r"\label{tab:main}",
-        r"\begin{tabular}{lccc}",
+        r"\begin{tabular}{lcccc}",
         r"\toprule",
-        r"Method & MAE $\downarrow$ & RMSE $\downarrow$ & R$^2$ $\uparrow$ \\",
+        r"Method & MAE $\downarrow$ & RMSE $\downarrow$ & R$^2$ $\uparrow$ & W-1d $\uparrow$ \\",
         r"\midrule",
     ]
     for row in rows:
+        w1d = row.get('within_1day', 'N/A')
         lines.append(
-            f"{row['experiment']} & {row['mae']} & {row['rmse']} & {row['r2']} \\\\"
+            f"{row['experiment']} & {row['mae']} & {row['rmse']} & {row['r2']} & {w1d} \\\\"
         )
     lines.extend([
         r"\bottomrule",

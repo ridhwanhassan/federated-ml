@@ -59,7 +59,7 @@ def aggregate_over_seeds(
     Returns
     -------
     dict
-        ``{"mae": {"mean": ..., "std": ...}, "rmse": {...}, "r2": {...}}``
+        ``{"mae": {"mean": ..., "std": ...}, "rmse": {...}, "r2": {...}, "within_1day": {...}}``
     """
     if not results:
         return {}
@@ -204,8 +204,11 @@ def build_table_ii(raw: dict) -> list[dict]:
 
 def _format_row(agg: dict[str, dict[str, float]]) -> dict[str, str]:
     """Format aggregated metrics into display strings."""
-    return {
+    row = {
         "mae": f"{agg['mae']['mean']:.3f} ± {agg['mae']['std']:.3f}",
         "rmse": f"{agg['rmse']['mean']:.3f} ± {agg['rmse']['std']:.3f}",
         "r2": f"{agg['r2']['mean']:.3f} ± {agg['r2']['std']:.3f}",
     }
+    if "within_1day" in agg:
+        row["within_1day"] = f"{agg['within_1day']['mean']:.3f} ± {agg['within_1day']['std']:.3f}"
+    return row

@@ -97,10 +97,11 @@ def evaluate_xgboost(
     Returns
     -------
     dict[str, float]
-        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``.
+        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``, ``"within_1day"``.
     """
     y_pred = model.predict(X)
     mae = float(mean_absolute_error(y, y_pred))
     rmse = float(np.sqrt(np.mean((y - y_pred) ** 2)))
     r2 = float(r2_score(y, y_pred))
-    return {"mae": mae, "rmse": rmse, "r2": r2}
+    within_1day = float(np.mean(np.abs(y - y_pred) <= 1.0))
+    return {"mae": mae, "rmse": rmse, "r2": r2, "within_1day": within_1day}
