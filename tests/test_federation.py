@@ -91,11 +91,14 @@ class TestRunFedAvg:
         assert len(result["round_metrics"]) == 3
 
     def test_round_metrics_structure(self):
-        """Each round metric should have mae, rmse, r2."""
+        """Each round metric should have mae, rmse, r2, and within_k_day keys."""
         loaders = _make_hospital_loaders(n_hospitals=3, n_samples=40, n_features=5)
         result = run_fedavg(loaders, n_features=5, n_rounds=2, local_epochs=1)
         for m in result["round_metrics"]:
-            assert set(m.keys()) == {"mae", "rmse", "r2"}
+            assert set(m.keys()) == {
+                "mae", "rmse", "r2",
+                "within_1_day", "within_2_day", "within_3_day",
+            }
 
     def test_per_hospital_metrics_shape(self):
         """per_hospital_metrics[round][hospital] should have metrics."""

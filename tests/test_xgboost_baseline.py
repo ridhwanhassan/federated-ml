@@ -40,11 +40,14 @@ class TestTrainXGBoost:
 
 class TestEvaluateXGBoost:
     def test_returns_metric_dict(self, synthetic_data):
-        """Should return dict with mae, rmse, r2 keys."""
+        """Should return dict with mae, rmse, r2, and within_k_day keys."""
         X_train, y_train, X_val, y_val = synthetic_data
         model = train_xgboost(X_train, y_train)
         metrics = evaluate_xgboost(model, X_val, y_val)
-        assert set(metrics.keys()) == {"mae", "rmse", "r2"}
+        assert set(metrics.keys()) == {
+            "mae", "rmse", "r2",
+            "within_1_day", "within_2_day", "within_3_day",
+        }
 
     def test_metrics_are_floats(self, synthetic_data):
         """All metric values should be Python floats."""

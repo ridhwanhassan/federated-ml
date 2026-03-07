@@ -135,14 +135,24 @@ def run_gossip(
         avg_mae = float(np.mean([m["mae"] for m in hospital_evals]))
         avg_rmse = float(np.mean([m["rmse"] for m in hospital_evals]))
         avg_r2 = float(np.mean([m["r2"] for m in hospital_evals]))
-        round_metric = {"mae": avg_mae, "rmse": avg_rmse, "r2": avg_r2}
+        avg_w1 = float(np.mean([m["within_1_day"] for m in hospital_evals]))
+        avg_w2 = float(np.mean([m["within_2_day"] for m in hospital_evals]))
+        avg_w3 = float(np.mean([m["within_3_day"] for m in hospital_evals]))
+        round_metric = {
+            "mae": avg_mae,
+            "rmse": avg_rmse,
+            "r2": avg_r2,
+            "within_1_day": avg_w1,
+            "within_2_day": avg_w2,
+            "within_3_day": avg_w3,
+        }
 
         round_metrics.append(round_metric)
         per_hospital_metrics.append(hospital_evals)
 
         logger.info(
-            "D-PSGD round %d/%d — mae=%.4f, rmse=%.4f, r2=%.4f",
-            rnd + 1, n_rounds, avg_mae, avg_rmse, avg_r2,
+            "D-PSGD round %d/%d — mae=%.4f, rmse=%.4f, r2=%.4f, within_1d=%.4f",
+            rnd + 1, n_rounds, avg_mae, avg_rmse, avg_r2, avg_w1,
         )
 
     # Communication cost: each node sends to 2 neighbors per round

@@ -12,6 +12,8 @@ import numpy as np
 from sklearn.metrics import mean_absolute_error, r2_score
 from xgboost import XGBRegressor
 
+from src.evaluation.metrics import within_k_days_accuracy
+
 logger = logging.getLogger(__name__)
 
 
@@ -97,10 +99,18 @@ def evaluate_xgboost(
     Returns
     -------
     dict[str, float]
-        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``.
+        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``,
+        ``"within_1_day"``, ``"within_2_day"``, ``"within_3_day"``.
     """
     y_pred = model.predict(X)
     mae = float(mean_absolute_error(y, y_pred))
     rmse = float(np.sqrt(np.mean((y - y_pred) ** 2)))
     r2 = float(r2_score(y, y_pred))
-    return {"mae": mae, "rmse": rmse, "r2": r2}
+    return {
+        "mae": mae,
+        "rmse": rmse,
+        "r2": r2,
+        "within_1_day": within_k_days_accuracy(y, y_pred, k=1.0),
+        "within_2_day": within_k_days_accuracy(y, y_pred, k=2.0),
+        "within_3_day": within_k_days_accuracy(y, y_pred, k=3.0),
+    }

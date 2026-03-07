@@ -111,10 +111,13 @@ class TestTrainOneEpoch:
 
 class TestEvaluate:
     def test_returns_metric_dict(self, synthetic_loader):
-        """Should return dict with mae, rmse, r2 keys."""
+        """Should return dict with mae, rmse, r2, and within_k_day keys."""
         model = LOSModel(n_features=10)
         metrics = evaluate(model, synthetic_loader)
-        assert set(metrics.keys()) == {"mae", "rmse", "r2"}
+        assert set(metrics.keys()) == {
+            "mae", "rmse", "r2",
+            "within_1_day", "within_2_day", "within_3_day",
+        }
 
     def test_metrics_are_floats(self, synthetic_loader):
         """All metric values should be Python floats."""
@@ -178,13 +181,16 @@ class TestTrainModel:
         assert len(result["train_losses"]) == 5
 
     def test_val_metrics_structure(self, synthetic_train_val):
-        """val_metrics is list of dicts with mae/rmse/r2."""
+        """val_metrics is list of dicts with mae/rmse/r2 and within_k_day."""
         train_loader, val_loader = synthetic_train_val
         model = LOSModel(n_features=10)
         result = train_model(model, train_loader, val_loader, n_epochs=3, patience=10)
         assert len(result["val_metrics"]) == 3
         for m in result["val_metrics"]:
-            assert set(m.keys()) == {"mae", "rmse", "r2"}
+            assert set(m.keys()) == {
+                "mae", "rmse", "r2",
+                "within_1_day", "within_2_day", "within_3_day",
+            }
 
     def test_uses_huber_loss(self, synthetic_train_val):
         """Default should use Huber loss (not MSE)."""
