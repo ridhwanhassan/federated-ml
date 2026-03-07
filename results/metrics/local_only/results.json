@@ -1,0 +1,67 @@
+[
+  {
+    "experiment": "local_only",
+    "hospital_id": 1,
+    "hospital_name": "H1 (Medical)",
+    "seed": 42,
+    "final_metrics": {
+      "mae": 1.6417198181152344,
+      "rmse": 3.150156021118164,
+      "r2": 0.3138362169265747
+    },
+    "best_val_mae": 1.6417198181152344,
+    "n_epochs_trained": 42
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 2,
+    "hospital_name": "H2 (Neuro)",
+    "seed": 42,
+    "final_metrics": {
+      "mae": 2.096102714538574,
+      "rmse": 3.3992700576782227,
+      "r2": 0.42233675718307495
+    },
+    "best_val_mae": 2.096102714538574,
+    "n_epochs_trained": 25
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 3,
+    "hospital_name": "H3 (Surgical)",
+    "seed": 42,
+    "final_metrics": {
+      "mae": 1.7439770698547363,
+      "rmse": 3.433443307876587,
+      "r2": 0.2789715528488159
+    },
+    "best_val_mae": 1.7439770698547363,
+    "n_epochs_trained": 24
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 4,
+    "hospital_name": "H4 (Trauma)",
+    "seed": 42,
+    "final_metrics": {
+      "mae": 1.7642009258270264,
+      "rmse": 4.089632511138916,
+      "r2": 0.007277071475982666
+    },
+    "best_val_mae": 1.7642009258270264,
+    "n_epochs_trained": 15
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 5,
+    "hospital_name": "H5 (Cardiac)",
+    "seed": 42,
+    "final_metrics": {
+      "mae": 1.5039972066879272,
+      "rmse": 2.877328395843506,
+      "r2": 0.21049118041992188
+    },
+    "best_val_mae": 1.5039972066879272,
+    "n_epochs_trained": 30
+  }
+]
