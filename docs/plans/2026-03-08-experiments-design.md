@@ -69,7 +69,7 @@ All results saved as JSON to `results/metrics/<experiment>/results.json`.
 Each result dict contains:
 - `experiment`: string identifier
 - `seed`: int
-- `final_metrics`: `{"mae": float, "rmse": float, "r2": float}`
+- `final_metrics`: `{"mae": float, "rmse": float, "r2": float, "within_1day": float}`
 - `convergence_curve`: list of per-round/epoch MAE (where applicable)
 - `per_hospital_final`: list of per-hospital metric dicts (federated/gossip only)
 - `communication_cost`: int total parameters exchanged (federated/gossip only)

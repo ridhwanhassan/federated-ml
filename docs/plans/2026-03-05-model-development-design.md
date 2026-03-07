@@ -38,12 +38,12 @@ Input(n_features)
 - `huber_delta`: default 5.0
 - `patience`: default 10 (early stopping on val MAE)
 - `device`: auto-detect CPU/CUDA
-- Returns: `{"train_losses": [...], "val_metrics": [{"mae":, "rmse":, "r2":}], "best_val_mae": float}`
+- Returns: `{"train_losses": [...], "val_metrics": [{"mae":, "rmse":, "r2":, "within_1day":}], "best_val_mae": float}`
 
 ### evaluate return format
 
 ```python
-{"mae": float, "rmse": float, "r2": float}
+{"mae": float, "rmse": float, "r2": float, "within_1day": float}
 ```
 
 ## Interface contract for federation

@@ -44,7 +44,7 @@ class TestEvaluateXGBoost:
         X_train, y_train, X_val, y_val = synthetic_data
         model = train_xgboost(X_train, y_train)
         metrics = evaluate_xgboost(model, X_val, y_val)
-        assert set(metrics.keys()) == {"mae", "rmse", "r2"}
+        assert set(metrics.keys()) == {"mae", "rmse", "r2", "within_1day"}
 
     def test_metrics_are_floats(self, synthetic_data):
         """All metric values should be Python floats."""
