@@ -30,7 +30,7 @@ Each step writes intermediate CSVs for debuggability and resumability.
 | File | Key Columns | Purpose |
 |------|------------|---------|
 | `hosp/patients.csv.gz` | subject_id, gender, anchor_age | Demographics |
-| `hosp/admissions.csv.gz` | subject_id, hadm_id, admittime, dischtime, hospital_expire_flag, insurance, ethnicity | Admission info, death exclusion |
+| `hosp/admissions.csv.gz` | hadm_id, admittime, dischtime, hospital_expire_flag, insurance, race, admission_type | Admission info, death exclusion |
 | `icu/icustays.csv.gz` | subject_id, hadm_id, stay_id, first_careunit, last_careunit, intime, outtime, los | ICU stay info, care unit, LOS target |
 | `hosp/diagnoses_icd.csv.gz` | subject_id, hadm_id, icd_code | Count for n_diagnoses |
 | `hosp/procedures_icd.csv.gz` | subject_id, hadm_id, icd_code | Count for n_procedures |
@@ -46,7 +46,7 @@ Each step writes intermediate CSVs for debuggability and resumability.
 
 ```
 icustays
-  LEFT JOIN admissions ON (subject_id, hadm_id)
+  LEFT JOIN admissions ON (hadm_id)
   LEFT JOIN patients ON (subject_id)
   LEFT JOIN (diagnoses count per hadm_id) ON (hadm_id)
   LEFT JOIN (procedures count per hadm_id) ON (hadm_id)
@@ -55,7 +55,7 @@ icustays
 
 ### Output
 
-`data/processed/cohort.csv` — columns: stay_id, subject_id, hadm_id, gender, anchor_age, ethnicity, insurance, admission_type, first_careunit, last_careunit, intime, outtime, los, n_diagnoses, n_procedures, drg_code, hospital_expire_flag
+`data/processed/cohort.csv` — columns: stay_id, subject_id, hadm_id, gender, anchor_age, race, insurance, admission_type, first_careunit, last_careunit, intime, outtime, los, n_diagnoses, n_procedures, drg_code
 
 ## Step 2: Feature Engineering (`src/data/features.py`)
 
@@ -74,11 +74,12 @@ Filter: events within 24h of ICU `intime`, by specific `itemid`s.
 | Heart Rate | 220045 | mean, min, max |
 | SBP | 220050, 220179 | mean, min, max |
 | DBP | 220051, 220180 | mean, min, max |
+| MBP | 220052, 220181 | mean, min, max |
 | SpO2 | 220277 | mean, min, max |
 | Temperature | 223761, 223762 | mean, min, max |
 | Respiratory Rate | 220210, 224690 | mean, min, max |
 
-→ 6 vitals × 3 aggregations = **18 features**
+→ 7 vitals × 3 aggregations = **21 features**
 
 ### First-24h Labs (from labevents)
 
@@ -91,7 +92,7 @@ Filter: events within 24h of ICU `intime`, by specific `itemid`s.
 | BUN | 51006 | mean |
 | WBC | 51301 | mean |
 | Hemoglobin | 51222 | mean |
-| Platelets | 51265 | mean |
+| Platelet | 51265 | mean |
 | Sodium | 50983 | mean |
 | Potassium | 50971 | mean |
 | Bicarbonate | 50882 | mean |
@@ -105,7 +106,7 @@ Filter: events within 24h of ICU `intime`, by specific `itemid`s.
 |---------|--------|----------|
 | age | anchor_age from patients | numeric |
 | gender | patients | binary (M=1, F=0) |
-| ethnicity | admissions | top-5 one-hot + OTHER |
+| race | admissions | top-5 one-hot + OTHER |
 | insurance | admissions | one-hot |
 | admission_type | admissions | one-hot |
 | n_diagnoses | count from diagnoses_icd | numeric |
@@ -130,26 +131,25 @@ Filter: events within 24h of ICU `intime`, by specific `itemid`s.
 
 ```python
 HOSPITAL_PARTITION = {
-    "Medical ICU": 1,
-    "Med/Surg ICU": 1,        # MICU/SICU
-    "MICU": 1,
-    "MICU/SICU": 1,
+    # H1 — Medical
+    "Medical Intensive Care Unit (MICU)": 1,
+    "Medical/Surgical Intensive Care Unit (MICU/SICU)": 1,
+    # H2 — Neuro
     "Neuro Intermediate": 2,
     "Neuro Stepdown": 2,
-    "Neuro SICU": 2,
-    "Surgical ICU": 3,        # SICU
-    "SICU": 3,
-    "Trauma SICU": 4,         # TSICU
-    "TSICU": 4,
-    "Coronary Care Unit": 5,  # CCU
-    "CCU": 5,
-    "Cardiac Vascular ICU": 5, # CVICU
-    "CVICU": 5,
+    "Neuro Surgical Intensive Care Unit (Neuro SICU)": 2,
+    # H3 — Surgical
+    "Surgical Intensive Care Unit (SICU)": 3,
+    # H4 — Trauma
+    "Trauma SICU (TSICU)": 4,
+    # H5 — Cardiac
+    "Coronary Care Unit (CCU)": 5,
+    "Cardiac Vascular Intensive Care Unit (CVICU)": 5,
 }
 # Default (unmatched) → Hospital 1
 ```
 
-**Note:** Exact care unit names will be verified against the downloaded `icustays.csv.gz` `first_careunit` column. The mapping above includes both full names and abbreviations as fallback.
+**Note:** Care unit names match the MIMIC-IV v2.2 `first_careunit` column in `icustays`.
 
 ### Output
 
@@ -224,8 +224,8 @@ Add to `pyproject.toml`:
 pandas, numpy, scikit-learn, torch
 ```
 
-## Open Items
+## Resolved Items
 
-- Verify exact `first_careunit` values in MIMIC-IV v2.2 once download completes
-- Confirm DRG code coverage (HCFA vs APR-DRG) — use `drg_type='HCFA'` by default
-- chartevents itemid verification — IDs listed above are for MIMIC-IV CareVue/MetaVision, need to confirm against `d_items`
+- ~~Verify exact `first_careunit` values in MIMIC-IV v2.2~~ — verified, full names used in partition mapping
+- ~~Confirm DRG code coverage (HCFA vs APR-DRG)~~ — using `drg_type='HCFA'` by default
+- ~~chartevents itemid verification~~ — IDs confirmed against MIMIC-IV MetaVision `d_items`
