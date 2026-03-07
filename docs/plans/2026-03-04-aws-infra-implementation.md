@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Stand up the full FedCost AWS infrastructure (5 VPCs, 5 EC2 instances, S3, VPC peering, IAM, SSM) via a single Pulumi Python stack, deployable with `pulumi up` from `infra/`.
+**Goal:** Stand up the full FedCost AWS infrastructure (6 VPCs, 7 EC2 instances, S3, IAM, SSM) via a single Pulumi Python stack, deployable with `pulumi up` from `infra/`.
 
-**Architecture:** Single Pulumi stack in `ap-southeast-1` with 5 VPCs (fl-server, hospital-a/b/c, centralized), each containing one public subnet and one EC2 instance. VPC peering connects the FL server to each hospital. S3 bucket holds experiment data. SSM parameters share runtime config. Tailscale on all instances for SSH management.
+**Architecture:** Single Pulumi stack in `ap-southeast-1` with 6 VPCs (fl-server + hospital-1 through hospital-5). FL server VPC uses a public subnet; hospital VPCs use private subnets with NAT Gateways. Centralized baseline instance shares the fl-server VPC. No VPC peering — Tailscale handles all inter-instance connectivity. S3 bucket holds experiment data. SSM parameters share runtime config (server IP, bucket name, hospital IPs for D-PSGD peer discovery). Tailscale on all instances for SSH management and research traffic.
 
 **Tech Stack:** Python 3.13, Pulumi (pulumi + pulumi_aws), uv for dependency management.
 
@@ -68,7 +68,7 @@ This tells Pulumi to use the project-level venv managed by uv (at `../.venv` rel
 
 **Step 4: Create `infra/config.py`**
 
-Typed dataclass that reads all Pulumi config values:
+Typed dataclass that reads all Pulumi config values. Defines 6 CIDR blocks (fl-server + 5 hospitals):
 
 ```python
 from dataclasses import dataclass
@@ -87,12 +87,13 @@ class FedCostConfig:
     instance_type_centralized: str
     instance_type_fl_server: str
 
-    # VPC CIDR blocks
+    # VPC CIDR blocks (fl-server + 5 hospital VPCs)
     cidr_fl_server: str = "10.0.0.0/16"
-    cidr_hospital_a: str = "10.1.0.0/16"
-    cidr_hospital_b: str = "10.2.0.0/16"
-    cidr_hospital_c: str = "10.3.0.0/16"
-    cidr_centralized: str = "10.4.0.0/16"
+    cidr_hospital_1: str = "10.1.0.0/16"
+    cidr_hospital_2: str = "10.2.0.0/16"
+    cidr_hospital_3: str = "10.3.0.0/16"
+    cidr_hospital_4: str = "10.4.0.0/16"
+    cidr_hospital_5: str = "10.5.0.0/16"
 
 
 def load_config() -> FedCostConfig:
@@ -176,7 +177,7 @@ def create_data_bucket() -> aws.s3.BucketV2:
 
     Structure:
         raw/                  - Full MIMIC-IV CSV (uploaded manually)
-        partitions/           - Per-hospital CSVs
+        partitions/           - Per-hospital CSVs (hospital-1 through hospital-5)
         results/              - Experiment output uploads
     """
     stack = pulumi.get_stack()
@@ -235,7 +236,7 @@ git commit -m "feat(infra): add S3 data bucket with public access block"
 
 ---
 
-### Task 3: Network — VPCs, subnets, internet gateways
+### Task 3: Network — VPCs, subnets, internet gateways, NAT Gateways
 
 **Files:**
 - Create: `infra/network/__init__.py`
@@ -244,12 +245,16 @@ git commit -m "feat(infra): add S3 data bucket with public access block"
 
 **Step 1: Create `infra/network/vpcs.py`**
 
-This creates all 5 VPCs, each with one public subnet, an internet gateway, and a route table.
+This creates all 6 VPCs. The fl-server VPC uses a public subnet (instances get public IPs, direct IGW route). The 5 hospital VPCs use private subnets with NAT Gateways for outbound access. No VPC peering — Tailscale handles inter-VPC connectivity.
 
 ```python
-"""VPC definitions for FedCost infrastructure."""
+"""VPC definitions for FedCost infrastructure.
 
-from dataclasses import dataclass
+5 hospital VPCs use private subnets (with NAT Gateway for outbound).
+FL server VPC uses a public subnet (also hosts centralized instance).
+"""
+
+from dataclasses import dataclass, field
 
 import pulumi_aws as aws
 
@@ -259,32 +264,30 @@ class VpcResources:
     """All resources created for a single VPC."""
 
     vpc: aws.ec2.Vpc
-    subnet: aws.ec2.Subnet
+    subnet: aws.ec2.Subnet  # The subnet where EC2 instances are placed
     igw: aws.ec2.InternetGateway
     route_table: aws.ec2.RouteTable
+    is_private: bool = False
+    # NAT resources (only for private subnets)
+    nat_eip: aws.ec2.Eip | None = None
+    nat_gateway: aws.ec2.NatGateway | None = None
+    public_subnet: aws.ec2.Subnet | None = None
 
 
 VPC_DEFINITIONS: list[dict] = [
-    {"name": "fl-server", "cidr": "10.0.0.0/16", "subnet_cidr": "10.0.1.0/24"},
-    {"name": "hospital-a", "cidr": "10.1.0.0/16", "subnet_cidr": "10.1.1.0/24"},
-    {"name": "hospital-b", "cidr": "10.2.0.0/16", "subnet_cidr": "10.2.1.0/24"},
-    {"name": "hospital-c", "cidr": "10.3.0.0/16", "subnet_cidr": "10.3.1.0/24"},
-    {"name": "centralized", "cidr": "10.4.0.0/16", "subnet_cidr": "10.4.1.0/24"},
+    # Public subnet — EC2 gets public IP, direct IGW route
+    {"name": "fl-server", "cidr": "10.0.0.0/16", "subnet_cidr": "10.0.1.0/24", "private": False},
+    # Private subnets — EC2 has no public IP, outbound via NAT Gateway
+    {"name": "hospital-1", "cidr": "10.1.0.0/16", "subnet_cidr": "10.1.1.0/24", "private": True},
+    {"name": "hospital-2", "cidr": "10.2.0.0/16", "subnet_cidr": "10.2.1.0/24", "private": True},
+    {"name": "hospital-3", "cidr": "10.3.0.0/16", "subnet_cidr": "10.3.1.0/24", "private": True},
+    {"name": "hospital-4", "cidr": "10.4.0.0/16", "subnet_cidr": "10.4.1.0/24", "private": True},
+    {"name": "hospital-5", "cidr": "10.5.0.0/16", "subnet_cidr": "10.5.1.0/24", "private": True},
 ]
 
 
-def create_vpc(name: str, cidr: str, subnet_cidr: str) -> VpcResources:
-    """Create a VPC with one public subnet, IGW, and route table.
-
-    Parameters
-    ----------
-    name : str
-        Logical name (e.g., "hospital-a").
-    cidr : str
-        VPC CIDR block (e.g., "10.1.0.0/16").
-    subnet_cidr : str
-        Subnet CIDR within the VPC (e.g., "10.1.1.0/24").
-    """
+def _create_public_vpc(name: str, cidr: str, subnet_cidr: str) -> VpcResources:
+    """Create a VPC with one public subnet (IGW route, public IP)."""
     vpc = aws.ec2.Vpc(
         f"vpc-{name}",
         cidr_block=cidr,
@@ -328,15 +331,129 @@ def create_vpc(name: str, cidr: str, subnet_cidr: str) -> VpcResources:
     return VpcResources(vpc=vpc, subnet=subnet, igw=igw, route_table=route_table)
 
 
+def _create_private_vpc(name: str, cidr: str, subnet_cidr: str) -> VpcResources:
+    """Create a VPC with a private subnet for EC2 and a NAT Gateway for outbound.
+
+    Layout:
+        public subnet  (.2.0/24) — holds NAT Gateway only
+        private subnet (.1.0/24) — holds EC2 instance, routes outbound via NAT
+    """
+    vpc = aws.ec2.Vpc(
+        f"vpc-{name}",
+        cidr_block=cidr,
+        enable_dns_support=True,
+        enable_dns_hostnames=True,
+        tags={"Name": f"fedcost-{name}", "Project": "fedcost"},
+    )
+
+    igw = aws.ec2.InternetGateway(
+        f"igw-{name}",
+        vpc_id=vpc.id,
+        tags={"Name": f"fedcost-{name}-igw", "Project": "fedcost"},
+    )
+
+    # Public subnet (for NAT Gateway)
+    public_cidr = subnet_cidr.replace(".1.0/24", ".2.0/24")
+    public_subnet = aws.ec2.Subnet(
+        f"subnet-{name}-public",
+        vpc_id=vpc.id,
+        cidr_block=public_cidr,
+        map_public_ip_on_launch=False,
+        tags={"Name": f"fedcost-{name}-public", "Project": "fedcost"},
+    )
+
+    public_rt = aws.ec2.RouteTable(
+        f"rt-{name}-public",
+        vpc_id=vpc.id,
+        routes=[
+            aws.ec2.RouteTableRouteArgs(
+                cidr_block="0.0.0.0/0",
+                gateway_id=igw.id,
+            ),
+        ],
+        tags={"Name": f"fedcost-{name}-public-rt", "Project": "fedcost"},
+    )
+
+    aws.ec2.RouteTableAssociation(
+        f"rta-{name}-public",
+        subnet_id=public_subnet.id,
+        route_table_id=public_rt.id,
+    )
+
+    # NAT Gateway (in public subnet)
+    nat_eip = aws.ec2.Eip(
+        f"eip-{name}-nat",
+        domain="vpc",
+        tags={"Name": f"fedcost-{name}-nat", "Project": "fedcost"},
+    )
+
+    nat_gw = aws.ec2.NatGateway(
+        f"nat-{name}",
+        subnet_id=public_subnet.id,
+        allocation_id=nat_eip.id,
+        tags={"Name": f"fedcost-{name}-nat", "Project": "fedcost"},
+    )
+
+    # Private subnet (for EC2)
+    private_subnet = aws.ec2.Subnet(
+        f"subnet-{name}-private",
+        vpc_id=vpc.id,
+        cidr_block=subnet_cidr,
+        map_public_ip_on_launch=False,
+        tags={"Name": f"fedcost-{name}-private", "Project": "fedcost"},
+    )
+
+    private_rt = aws.ec2.RouteTable(
+        f"rt-{name}-private",
+        vpc_id=vpc.id,
+        routes=[
+            aws.ec2.RouteTableRouteArgs(
+                cidr_block="0.0.0.0/0",
+                nat_gateway_id=nat_gw.id,
+            ),
+        ],
+        tags={"Name": f"fedcost-{name}-private-rt", "Project": "fedcost"},
+    )
+
+    aws.ec2.RouteTableAssociation(
+        f"rta-{name}-private",
+        subnet_id=private_subnet.id,
+        route_table_id=private_rt.id,
+    )
+
+    return VpcResources(
+        vpc=vpc,
+        subnet=private_subnet,  # EC2 goes here
+        igw=igw,
+        route_table=private_rt,
+        is_private=True,
+        nat_eip=nat_eip,
+        nat_gateway=nat_gw,
+        public_subnet=public_subnet,
+    )
+
+
 def create_all_vpcs() -> dict[str, VpcResources]:
-    """Create all 5 FedCost VPCs.
+    """Create all 6 FedCost VPCs.
+
+    - fl-server: public subnet (direct internet, also hosts centralized instance)
+    - hospital-1 through hospital-5: private subnets (outbound via NAT Gateway)
 
     Returns
     -------
     dict[str, VpcResources]
         Mapping of VPC name to its resources.
     """
-    return {defn["name"]: create_vpc(**defn) for defn in VPC_DEFINITIONS}
+    result = {}
+    for defn in VPC_DEFINITIONS:
+        name = defn["name"]
+        cidr = defn["cidr"]
+        subnet_cidr = defn["subnet_cidr"]
+        if defn["private"]:
+            result[name] = _create_private_vpc(name, cidr, subnet_cidr)
+        else:
+            result[name] = _create_public_vpc(name, cidr, subnet_cidr)
+    return result
 ```
 
 **Step 2: Create `infra/network/__init__.py`**
@@ -346,6 +463,8 @@ from network.vpcs import VpcResources, create_all_vpcs
 
 __all__ = ["VpcResources", "create_all_vpcs"]
 ```
+
+Note: No `peering.py` module — Tailscale handles all inter-VPC connectivity.
 
 **Step 3: Wire into `__main__.py`**
 
@@ -363,7 +482,7 @@ config = load_config()
 # 1. Storage
 data_bucket = create_data_bucket()
 
-# 2. Network
+# 2. Network (Tailscale handles inter-VPC connectivity — no peering needed)
 vpcs = create_all_vpcs()
 
 pulumi.export("region", config.region)
@@ -378,128 +497,21 @@ for name, vpc_res in vpcs.items():
 cd infra/ && pulumi preview
 ```
 
-Expected: ~27 resources (5 VPCs + 5 subnets + 5 IGWs + 5 route tables + 5 route table associations + 2 S3 resources).
+Expected: ~57 resources for 6 VPCs:
+- fl-server: VPC + subnet + IGW + route table + association = 5
+- hospital-1 through hospital-5 (×5): VPC + 2 subnets + IGW + 2 route tables + 2 associations + EIP + NAT GW = 10 each = 50
+- Plus 2 S3 resources = 57 total
 
 **Step 5: Commit**
 
 ```bash
 git add infra/network/ infra/__main__.py
-git commit -m "feat(infra): add 5 VPCs with public subnets and IGWs"
+git commit -m "feat(infra): add 6 VPCs — public for FL server, private with NAT for hospitals"
 ```
 
 ---
 
-### Task 4: Network — VPC peering (fl-server <-> hospitals)
-
-**Files:**
-- Create: `infra/network/peering.py`
-- Modify: `infra/network/__init__.py`
-- Modify: `infra/__main__.py`
-
-**Step 1: Create `infra/network/peering.py`**
-
-```python
-"""VPC peering between FL server and hospital VPCs."""
-
-import pulumi_aws as aws
-
-from network.vpcs import VpcResources
-
-HOSPITAL_NAMES = ["hospital-a", "hospital-b", "hospital-c"]
-
-
-def create_peering(
-    vpcs: dict[str, VpcResources],
-) -> list[aws.ec2.VpcPeeringConnection]:
-    """Create VPC peering from fl-server to each hospital VPC.
-
-    Also adds route table entries so traffic flows in both directions.
-    Hospitals cannot peer with each other — only with the FL server.
-
-    Parameters
-    ----------
-    vpcs : dict[str, VpcResources]
-        All VPC resources keyed by name.
-    """
-    server_vpc = vpcs["fl-server"]
-    peerings = []
-
-    for hospital_name in HOSPITAL_NAMES:
-        hospital_vpc = vpcs[hospital_name]
-
-        peering = aws.ec2.VpcPeeringConnection(
-            f"peer-server-{hospital_name}",
-            vpc_id=server_vpc.vpc.id,
-            peer_vpc_id=hospital_vpc.vpc.id,
-            auto_accept=True,
-            tags={
-                "Name": f"fedcost-server-{hospital_name}",
-                "Project": "fedcost",
-            },
-        )
-
-        # Route from FL server -> hospital CIDR
-        aws.ec2.Route(
-            f"route-server-to-{hospital_name}",
-            route_table_id=server_vpc.route_table.id,
-            destination_cidr_block=hospital_vpc.vpc.cidr_block,
-            vpc_peering_connection_id=peering.id,
-        )
-
-        # Route from hospital -> FL server CIDR
-        aws.ec2.Route(
-            f"route-{hospital_name}-to-server",
-            route_table_id=hospital_vpc.route_table.id,
-            destination_cidr_block=server_vpc.vpc.cidr_block,
-            vpc_peering_connection_id=peering.id,
-        )
-
-        peerings.append(peering)
-
-    return peerings
-```
-
-**Step 2: Update `infra/network/__init__.py`**
-
-```python
-from network.peering import create_peering
-from network.vpcs import VpcResources, create_all_vpcs
-
-__all__ = ["VpcResources", "create_all_vpcs", "create_peering"]
-```
-
-**Step 3: Wire into `__main__.py`**
-
-Add after the `vpcs = create_all_vpcs()` line:
-
-```python
-from network import create_all_vpcs, create_peering
-
-# ... (existing code)
-
-# 2. Network
-vpcs = create_all_vpcs()
-peerings = create_peering(vpcs)
-```
-
-**Step 4: Run `pulumi preview`**
-
-```bash
-cd infra/ && pulumi preview
-```
-
-Expected: +9 new resources (3 peering connections + 6 routes).
-
-**Step 5: Commit**
-
-```bash
-git add infra/network/ infra/__main__.py
-git commit -m "feat(infra): add VPC peering between FL server and hospitals"
-```
-
----
-
-### Task 5: Security — IAM roles and instance profiles
+### Task 4: Security — IAM roles and instance profiles
 
 **Files:**
 - Create: `infra/security/__init__.py`
@@ -508,7 +520,7 @@ git commit -m "feat(infra): add VPC peering between FL server and hospitals"
 
 **Step 1: Create `infra/security/iam.py`**
 
-Three IAM roles: hospital (S3 read + SSM read), fl-server (S3 read + SSM write), centralized (S3 read).
+Three IAM roles: hospital (S3 read + SSM read), fl-server (S3 read + SSM read/write), centralized (S3 read/write). All roles also get the `AmazonSSMManagedInstanceCore` managed policy for Session Manager debugging access.
 
 ```python
 """IAM roles and instance profiles for FedCost EC2 instances."""
@@ -638,7 +650,7 @@ def create_iam_resources(
         )
     )
 
-    # Centralized: read S3 only
+    # Centralized: read/write S3
     centralized_policy = data_bucket_arn.apply(
         lambda arn: json.dumps(
             {
@@ -692,7 +704,7 @@ iam = create_iam_resources(data_bucket_arn=data_bucket.arn)
 cd infra/ && pulumi preview
 ```
 
-Expected: +9 new resources (3 roles + 3 policies + 3 instance profiles).
+Expected: +12 new resources (3 roles + 3 policies + 3 managed policy attachments + 3 instance profiles).
 
 **Step 5: Commit**
 
@@ -703,7 +715,7 @@ git commit -m "feat(infra): add IAM roles and instance profiles for 3 node types
 
 ---
 
-### Task 6: Security — Security groups
+### Task 5: Security — Security groups
 
 **Files:**
 - Create: `infra/security/security_groups.py`
@@ -712,27 +724,38 @@ git commit -m "feat(infra): add IAM roles and instance profiles for 3 node types
 
 **Step 1: Create `infra/security/security_groups.py`**
 
+All security groups are outbound-only. No ingress rules — Tailscale handles all inter-instance connectivity (Flower gRPC, D-PSGD gossip, SSH) via encrypted WireGuard tunnels. One SG per VPC (6 total).
+
 ```python
-"""Security groups for FedCost EC2 instances."""
+"""Security groups for FedCost EC2 instances.
+
+All inter-instance communication (Flower gRPC, SSH) goes through Tailscale.
+Security groups only need to allow outbound traffic for S3, apt, pip, and
+Tailscale coordination. No VPC peering or cross-VPC ingress rules needed.
+"""
 
 import pulumi_aws as aws
 
 from network.vpcs import VpcResources
 
-FLOWER_PORT = 8080
-HOSPITAL_NAMES = ["hospital-a", "hospital-b", "hospital-c"]
+ALL_VPC_NAMES = [
+    "fl-server",
+    "hospital-1",
+    "hospital-2",
+    "hospital-3",
+    "hospital-4",
+    "hospital-5",
+]
 
 
 def create_security_groups(
     vpcs: dict[str, VpcResources],
 ) -> dict[str, aws.ec2.SecurityGroup]:
-    """Create security groups for each instance role.
+    """Create security groups for each VPC.
 
-    Rules:
-    - FL server: accepts Flower gRPC (8080) from hospital VPC CIDRs only
-    - Hospitals: allow outbound to FL server on 8080
-    - Centralized: no special inbound (SSH via Tailscale only)
-    - All: allow all outbound (for S3, apt, pip, Tailscale)
+    All instances use outbound-only SGs. Tailscale handles connectivity
+    (Flower gRPC, SSH) via encrypted WireGuard tunnels over the public
+    internet, so no cross-VPC ingress rules are required.
 
     Parameters
     ----------
@@ -746,41 +769,11 @@ def create_security_groups(
     """
     sgs: dict[str, aws.ec2.SecurityGroup] = {}
 
-    # FL server SG — accepts Flower gRPC from hospitals
-    hospital_ingress_rules = [
-        aws.ec2.SecurityGroupIngressArgs(
-            protocol="tcp",
-            from_port=FLOWER_PORT,
-            to_port=FLOWER_PORT,
-            cidr_blocks=[vpcs[h].vpc.cidr_block],
-            description=f"Flower gRPC from {h}",
-        )
-        for h in HOSPITAL_NAMES
-    ]
-
-    sgs["fl-server"] = aws.ec2.SecurityGroup(
-        "sg-fl-server",
-        vpc_id=vpcs["fl-server"].vpc.id,
-        description="FL server — Flower gRPC from hospitals",
-        ingress=hospital_ingress_rules,
-        egress=[
-            aws.ec2.SecurityGroupEgressArgs(
-                protocol="-1",
-                from_port=0,
-                to_port=0,
-                cidr_blocks=["0.0.0.0/0"],
-                description="Allow all outbound",
-            ),
-        ],
-        tags={"Name": "fedcost-sg-fl-server", "Project": "fedcost"},
-    )
-
-    # Hospital SGs — allow all outbound (Flower client initiates to server)
-    for hospital_name in HOSPITAL_NAMES:
-        sgs[hospital_name] = aws.ec2.SecurityGroup(
-            f"sg-{hospital_name}",
-            vpc_id=vpcs[hospital_name].vpc.id,
-            description=f"{hospital_name} — Flower client",
+    for name in ALL_VPC_NAMES:
+        sgs[name] = aws.ec2.SecurityGroup(
+            f"secgrp-{name}",
+            vpc_id=vpcs[name].vpc.id,
+            description=f"fedcost-{name} - outbound only, Tailscale for ingress",
             egress=[
                 aws.ec2.SecurityGroupEgressArgs(
                     protocol="-1",
@@ -791,27 +784,10 @@ def create_security_groups(
                 ),
             ],
             tags={
-                "Name": f"fedcost-sg-{hospital_name}",
+                "Name": f"fedcost-sg-{name}",
                 "Project": "fedcost",
             },
         )
-
-    # Centralized SG — outbound only (SSH via Tailscale)
-    sgs["centralized"] = aws.ec2.SecurityGroup(
-        "sg-centralized",
-        vpc_id=vpcs["centralized"].vpc.id,
-        description="Centralized baselines — outbound only",
-        egress=[
-            aws.ec2.SecurityGroupEgressArgs(
-                protocol="-1",
-                from_port=0,
-                to_port=0,
-                cidr_blocks=["0.0.0.0/0"],
-                description="Allow all outbound",
-            ),
-        ],
-        tags={"Name": "fedcost-sg-centralized", "Project": "fedcost"},
-    )
 
     return sgs
 ```
@@ -841,22 +817,23 @@ sgs = create_security_groups(vpcs)
 cd infra/ && pulumi preview
 ```
 
-Expected: +5 new security groups.
+Expected: +6 new security groups (one per VPC).
 
 **Step 5: Commit**
 
 ```bash
 git add infra/security/ infra/__main__.py
-git commit -m "feat(infra): add security groups for FL server, hospitals, and centralized"
+git commit -m "feat(infra): add outbound-only security groups for all 6 VPCs"
 ```
 
 ---
 
-### Task 7: Compute — SSH key pair and user-data scripts
+### Task 6: Compute — SSH key pair and user-data scripts
 
 **Files:**
 - Create: `infra/compute/__init__.py`
 - Create: `infra/compute/key_pair.py`
+- Create: `infra/compute/user_data/base.sh`
 - Create: `infra/compute/user_data/fl_server.sh`
 - Create: `infra/compute/user_data/hospital.sh`
 - Create: `infra/compute/user_data/centralized.sh`
@@ -884,77 +861,77 @@ def create_key_pair(public_key: str) -> aws.ec2.KeyPair:
     )
 ```
 
-**Step 2: Create `infra/compute/user_data/fl_server.sh`**
+**Step 2: Create `infra/compute/user_data/base.sh`**
+
+Shared bootstrap script prepended to all role-specific scripts. Handles system update, Python 3.13 install, and Tailscale setup. Uses `${NODE_NAME}` variable (replaced at deploy time).
 
 ```bash
 #!/bin/bash
 set -euo pipefail
 
+# --- System update ---
+dnf update -y
+dnf install -y python3.13 python3.13-pip git aws-cli
+
 # --- Tailscale ---
 curl -fsSL https://tailscale.com/install.sh | sh
-tailscale up --authkey="${TAILSCALE_AUTH_KEY}" --hostname=fedcost-fl-server
+tailscale up --authkey="${TAILSCALE_AUTH_KEY}" --hostname=fedcost-${NODE_NAME}
 
-# --- Python 3.13 + pip ---
-dnf install -y python3.13 python3.13-pip git
+# --- Python ---
 python3.13 -m pip install --upgrade pip
 
-# --- Project dependencies ---
-python3.13 -m pip install flwr torch numpy pandas scikit-learn
-
-echo "FL server bootstrap complete"
+echo "[base] System update + Tailscale complete for fedcost-${NODE_NAME}"
 ```
 
-**Step 3: Create `infra/compute/user_data/hospital.sh`**
+**Step 3: Create `infra/compute/user_data/fl_server.sh`**
 
 ```bash
 #!/bin/bash
-set -euo pipefail
+# Role-specific setup for FL aggregation server
+# Prepended by base.sh at deploy time
 
-# --- Tailscale ---
-curl -fsSL https://tailscale.com/install.sh | sh
-tailscale up --authkey="${TAILSCALE_AUTH_KEY}" --hostname=fedcost-${HOSPITAL_NAME}
-
-# --- Python 3.13 + pip ---
-dnf install -y python3.13 python3.13-pip git aws-cli
-python3.13 -m pip install --upgrade pip
-
-# --- Project dependencies ---
 python3.13 -m pip install flwr torch numpy pandas scikit-learn
 
-# --- Download hospital data partition from S3 ---
+echo "[fl-server] Bootstrap complete"
+```
+
+**Step 4: Create `infra/compute/user_data/hospital.sh`**
+
+Uses `${NODE_NAME}` (e.g. "hospital-1") to download the correct partition from S3.
+
+```bash
+#!/bin/bash
+# Role-specific setup for hospital Flower client
+# Prepended by base.sh at deploy time
+
+python3.13 -m pip install flwr torch numpy pandas scikit-learn
+
+# Download hospital data partition from S3
 BUCKET=$(aws ssm get-parameter --name /fedcost/s3-data-bucket --query Parameter.Value --output text)
 mkdir -p /opt/fedcost/data
-aws s3 cp "s3://${BUCKET}/partitions/${HOSPITAL_NAME}.csv" /opt/fedcost/data/
+aws s3 cp "s3://${BUCKET}/partitions/${NODE_NAME}.csv" /opt/fedcost/data/
 
-echo "Hospital ${HOSPITAL_NAME} bootstrap complete"
+echo "[${NODE_NAME}] Bootstrap complete"
 ```
 
-**Step 4: Create `infra/compute/user_data/centralized.sh`**
+**Step 5: Create `infra/compute/user_data/centralized.sh`**
 
 ```bash
 #!/bin/bash
-set -euo pipefail
+# Role-specific setup for centralized baseline node
+# Prepended by base.sh at deploy time
 
-# --- Tailscale ---
-curl -fsSL https://tailscale.com/install.sh | sh
-tailscale up --authkey="${TAILSCALE_AUTH_KEY}" --hostname=fedcost-centralized
-
-# --- Python 3.13 + pip ---
-dnf install -y python3.13 python3.13-pip git aws-cli
-python3.13 -m pip install --upgrade pip
-
-# --- Project dependencies ---
 python3.13 -m pip install flwr torch numpy pandas scikit-learn xgboost shap matplotlib seaborn
 
-# --- Download full dataset from S3 ---
+# Download full dataset from S3
 BUCKET=$(aws ssm get-parameter --name /fedcost/s3-data-bucket --query Parameter.Value --output text)
 mkdir -p /opt/fedcost/data
 aws s3 cp "s3://${BUCKET}/raw/" /opt/fedcost/data/ --recursive
 
-echo "Centralized node bootstrap complete"
+echo "[centralized] Bootstrap complete"
 ```
 
-**Step 5: Create `infra/compute/__init__.py`**
+**Step 6: Create `infra/compute/__init__.py`**
 
 ```python
 from compute.key_pair import create_key_pair
@@ -962,16 +939,16 @@ from compute.key_pair import create_key_pair
 __all__ = ["create_key_pair"]
 ```
 
-**Step 6: Commit**
+**Step 7: Commit**
 
 ```bash
 git add infra/compute/
-git commit -m "feat(infra): add SSH key pair and user-data bootstrap scripts"
+git commit -m "feat(infra): add SSH key pair and modular user-data bootstrap scripts"
 ```
 
 ---
 
-### Task 8: Compute — EC2 instances
+### Task 7: Compute — EC2 instances
 
 **Files:**
 - Create: `infra/compute/instances.py`
@@ -979,6 +956,8 @@ git commit -m "feat(infra): add SSH key pair and user-data bootstrap scripts"
 - Modify: `infra/__main__.py`
 
 **Step 1: Create `infra/compute/instances.py`**
+
+Defines 7 instances: fl-server, hospital-1 through hospital-5, and centralized. The centralized instance shares the fl-server VPC. User-data is built by concatenating `base.sh` + role-specific script, with `${TAILSCALE_AUTH_KEY}` and `${NODE_NAME}` variable injection.
 
 ```python
 """EC2 instance definitions for FedCost infrastructure."""
@@ -993,6 +972,7 @@ from network.vpcs import VpcResources
 from security.iam import IamResources
 
 USER_DATA_DIR = Path(__file__).parent / "user_data"
+BASE_SCRIPT = (USER_DATA_DIR / "base.sh").read_text()
 
 INSTANCE_DEFINITIONS = [
     {
@@ -1000,35 +980,42 @@ INSTANCE_DEFINITIONS = [
         "vpc_name": "fl-server",
         "iam_key": "fl-server",
         "user_data_template": "fl_server.sh",
-        "extra_env": {},
     },
     {
-        "name": "hospital-a",
-        "vpc_name": "hospital-a",
+        "name": "hospital-1",
+        "vpc_name": "hospital-1",
         "iam_key": "hospital",
         "user_data_template": "hospital.sh",
-        "extra_env": {"HOSPITAL_NAME": "hospital-a"},
     },
     {
-        "name": "hospital-b",
-        "vpc_name": "hospital-b",
+        "name": "hospital-2",
+        "vpc_name": "hospital-2",
         "iam_key": "hospital",
         "user_data_template": "hospital.sh",
-        "extra_env": {"HOSPITAL_NAME": "hospital-b"},
     },
     {
-        "name": "hospital-c",
-        "vpc_name": "hospital-c",
+        "name": "hospital-3",
+        "vpc_name": "hospital-3",
         "iam_key": "hospital",
         "user_data_template": "hospital.sh",
-        "extra_env": {"HOSPITAL_NAME": "hospital-c"},
+    },
+    {
+        "name": "hospital-4",
+        "vpc_name": "hospital-4",
+        "iam_key": "hospital",
+        "user_data_template": "hospital.sh",
+    },
+    {
+        "name": "hospital-5",
+        "vpc_name": "hospital-5",
+        "iam_key": "hospital",
+        "user_data_template": "hospital.sh",
     },
     {
         "name": "centralized",
-        "vpc_name": "centralized",
+        "vpc_name": "fl-server",
         "iam_key": "centralized",
         "user_data_template": "centralized.sh",
-        "extra_env": {},
     },
 ]
 
@@ -1044,24 +1031,29 @@ class InstanceResult:
 
 def _get_user_data(
     template_name: str,
+    node_name: str,
     tailscale_auth_key: pulumi.Output | str,
-    extra_env: dict[str, str],
 ) -> pulumi.Output:
-    """Read a user-data script and inject environment variables."""
-    script = (USER_DATA_DIR / template_name).read_text()
+    """Concatenate base.sh + role script and inject variables.
+
+    Variables replaced: ${TAILSCALE_AUTH_KEY}, ${NODE_NAME}.
+    """
+    role_script = (USER_DATA_DIR / template_name).read_text()
+    combined = BASE_SCRIPT + "\n" + role_script
 
     def _inject(ts_key: str) -> str:
-        result = script.replace("${TAILSCALE_AUTH_KEY}", ts_key)
-        for k, v in extra_env.items():
-            result = result.replace(f"${{{k}}}", v)
-        return result
+        return combined.replace(
+            "${TAILSCALE_AUTH_KEY}", ts_key
+        ).replace(
+            "${NODE_NAME}", node_name
+        )
 
     if isinstance(tailscale_auth_key, str):
         return pulumi.Output.from_input(_inject(tailscale_auth_key))
     return tailscale_auth_key.apply(_inject)
 
 
-def _get_ami() -> pulumi.Output:
+def _get_ami() -> str:
     """Get the latest Amazon Linux 2023 AMI."""
     ami = aws.ec2.get_ami(
         most_recent=True,
@@ -1088,7 +1080,7 @@ def create_instances(
     tailscale_auth_key: pulumi.Output | str,
     instance_types: dict[str, str],
 ) -> dict[str, InstanceResult]:
-    """Create all 5 FedCost EC2 instances.
+    """Create all 7 FedCost EC2 instances.
 
     Parameters
     ----------
@@ -1116,8 +1108,8 @@ def create_instances(
 
         user_data = _get_user_data(
             defn["user_data_template"],
-            tailscale_auth_key,
-            defn["extra_env"],
+            node_name=name,
+            tailscale_auth_key=tailscale_auth_key,
         )
 
         instance = aws.ec2.Instance(
@@ -1160,21 +1152,25 @@ __all__ = ["InstanceResult", "create_instances", "create_key_pair"]
 """FedCost AWS Infrastructure — Pulumi entry point."""
 
 import pulumi
+import pulumi_aws as aws
 
 from compute import create_instances, create_key_pair
 from config import load_config
-from network import create_all_vpcs, create_peering
+from network import create_all_vpcs
 from security import create_iam_resources, create_security_groups
 from storage import create_data_bucket
+
+# Show deployment target
+caller = aws.get_caller_identity()
+print(f"Deploying to AWS account {caller.account_id} (region: {aws.get_region().name})")
 
 config = load_config()
 
 # 1. Storage
 data_bucket = create_data_bucket()
 
-# 2. Network
+# 2. Network (Tailscale handles inter-VPC connectivity — no peering needed)
 vpcs = create_all_vpcs()
-peerings = create_peering(vpcs)
 
 # 3. Security
 iam = create_iam_resources(data_bucket_arn=data_bucket.arn)
@@ -1190,9 +1186,11 @@ instances = create_instances(
     tailscale_auth_key=config.tailscale_auth_key,
     instance_types={
         "fl-server": config.instance_type_fl_server,
-        "hospital-a": config.instance_type_hospital,
-        "hospital-b": config.instance_type_hospital,
-        "hospital-c": config.instance_type_hospital,
+        "hospital-1": config.instance_type_hospital,
+        "hospital-2": config.instance_type_hospital,
+        "hospital-3": config.instance_type_hospital,
+        "hospital-4": config.instance_type_hospital,
+        "hospital-5": config.instance_type_hospital,
         "centralized": config.instance_type_centralized,
     },
 )
@@ -1216,18 +1214,18 @@ for name, inst in instances.items():
 cd infra/ && pulumi preview
 ```
 
-Expected: +6 new resources (5 instances + 1 key pair).
+Expected: +8 new resources (7 instances + 1 key pair).
 
 **Step 5: Commit**
 
 ```bash
 git add infra/compute/ infra/__main__.py
-git commit -m "feat(infra): add 5 EC2 instances with user-data bootstrap"
+git commit -m "feat(infra): add 7 EC2 instances with modular user-data bootstrap"
 ```
 
 ---
 
-### Task 9: SSM — Parameter Store for runtime config
+### Task 8: SSM — Parameter Store for runtime config
 
 **Files:**
 - Create: `infra/ssm/__init__.py`
@@ -1236,25 +1234,40 @@ git commit -m "feat(infra): add 5 EC2 instances with user-data bootstrap"
 
 **Step 1: Create `infra/ssm/parameters.py`**
 
+Creates 7 SSM parameters: FL server IP, S3 bucket name, and 5 hospital private IPs (for D-PSGD ring peer discovery).
+
 ```python
 """SSM Parameter Store entries for FedCost runtime config."""
 
 import pulumi
 import pulumi_aws as aws
 
+HOSPITAL_NAMES = [
+    "hospital-1",
+    "hospital-2",
+    "hospital-3",
+    "hospital-4",
+    "hospital-5",
+]
+
 
 def create_ssm_parameters(
     fl_server_private_ip: pulumi.Output,
     data_bucket_name: pulumi.Output,
+    hospital_private_ips: dict[str, pulumi.Output],
 ) -> list[aws.ssm.Parameter]:
     """Create SSM parameters for runtime discovery.
 
     Parameters
     ----------
     fl_server_private_ip : Output
-        Private IP of the FL server instance.
+        Private IP of the FL server instance (informational — Flower
+        clients connect via Tailscale hostname instead).
     data_bucket_name : Output
         Name of the S3 data bucket.
+    hospital_private_ips : dict[str, Output]
+        Private IPs of hospital instances, keyed by name (e.g. "hospital-1").
+        Used by D-PSGD ring topology for peer discovery.
     """
     params = []
 
@@ -1280,6 +1293,18 @@ def create_ssm_parameters(
         )
     )
 
+    for name in HOSPITAL_NAMES:
+        params.append(
+            aws.ssm.Parameter(
+                f"ssm-{name}-ip",
+                name=f"/fedcost/{name}-ip",
+                type=aws.ssm.ParameterType.STRING,
+                value=hospital_private_ips[name],
+                description=f"Private IP of {name} (for gossip topology)",
+                tags={"Project": "fedcost"},
+            )
+        )
+
     return params
 ```
 
@@ -1299,9 +1324,21 @@ Add after the compute section:
 from ssm import create_ssm_parameters
 
 # 5. SSM Parameters
+hospital_ips = {
+    name: instances[name].private_ip
+    for name in [
+        "hospital-1",
+        "hospital-2",
+        "hospital-3",
+        "hospital-4",
+        "hospital-5",
+    ]
+}
+
 ssm_params = create_ssm_parameters(
     fl_server_private_ip=instances["fl-server"].private_ip,
     data_bucket_name=data_bucket.bucket,
+    hospital_private_ips=hospital_ips,
 )
 ```
 
@@ -1311,18 +1348,18 @@ ssm_params = create_ssm_parameters(
 cd infra/ && pulumi preview
 ```
 
-Expected: +2 SSM parameters. Total resources should be ~50.
+Expected: +7 SSM parameters.
 
 **Step 5: Commit**
 
 ```bash
 git add infra/ssm/ infra/__main__.py
-git commit -m "feat(infra): add SSM parameters for Flower server IP and data bucket"
+git commit -m "feat(infra): add 7 SSM parameters — server IP, bucket, and hospital IPs for gossip"
 ```
 
 ---
 
-### Task 10: End-to-end validation — `pulumi preview` on full stack
+### Task 9: End-to-end validation — `pulumi preview` on full stack
 
 **Step 1: Run full preview**
 
@@ -1330,22 +1367,22 @@ git commit -m "feat(infra): add SSM parameters for Flower server IP and data buc
 cd infra/ && pulumi preview --diff
 ```
 
-Expected: ~50 resources total. Verify:
-- 5 VPCs, 5 subnets, 5 IGWs, 5 route tables, 5 route table associations
-- 3 VPC peering connections, 6 routes (peering)
+Expected: ~70 resources total. Verify:
+- 6 VPCs, 11 subnets, 6 IGWs, 11 route tables, 11 route table associations
+- 5 Elastic IPs, 5 NAT Gateways
 - 1 S3 bucket, 1 public access block
-- 3 IAM roles, 3 IAM policies, 3 IAM policy attachments, 3 instance profiles
-- 5 security groups
-- 1 key pair, 5 EC2 instances
-- 2 SSM parameters
+- 3 IAM roles, 3 IAM policies, 3 IAM managed policy attachments, 3 instance profiles
+- 6 security groups
+- 1 key pair, 7 EC2 instances
+- 7 SSM parameters
 
 **Step 2: Verify exports**
 
 Check that all expected outputs are listed:
 - `region`
 - `data_bucket_name`
-- `vpc_*_id` (5 entries)
-- `ec2_*_id`, `ec2_*_private_ip`, `ec2_*_public_ip` (5 × 3 = 15 entries)
+- `vpc_*_id` (6 entries)
+- `ec2_*_id`, `ec2_*_private_ip`, `ec2_*_public_ip` (7 × 3 = 21 entries)
 
 **Step 3: Commit final state**
 
@@ -1368,8 +1405,7 @@ infra/
 │   └── s3.py
 ├── network/
 │   ├── __init__.py
-│   ├── vpcs.py
-│   └── peering.py
+│   └── vpcs.py
 ├── security/
 │   ├── __init__.py
 │   ├── iam.py
@@ -1379,6 +1415,7 @@ infra/
 │   ├── key_pair.py
 │   ├── instances.py
 │   └── user_data/
+│       ├── base.sh
 │       ├── fl_server.sh
 │       ├── hospital.sh
 │       └── centralized.sh
@@ -1394,6 +1431,7 @@ infra/
 3. Set stack config values (SSH key, Tailscale auth key)
 4. Run `pulumi up` and review the plan
 5. After deploy: verify instances appear in EC2 console
-6. Verify Tailscale shows 5 nodes
-7. Upload test data to S3: `aws s3 cp test.csv s3://fedcost-data-dev/partitions/hospital-a.csv`
+6. Verify Tailscale shows 7 nodes (fl-server, hospital-1 through hospital-5, centralized)
+7. Upload test data to S3: `aws s3 cp test.csv s3://fedcost-data-dev/partitions/hospital-1.csv`
 8. SSH via Tailscale to fl-server: `ssh ec2-user@fedcost-fl-server`
+9. Run post-deploy smoke tests: `pytest tests/test_infra_deployed.py -v --run-deployed`
