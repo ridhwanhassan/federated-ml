@@ -133,7 +133,8 @@ def evaluate(
     Returns
     -------
     dict[str, float]
-        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``.
+        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``,
+        ``"within_1day_acc"``.
     """
     model.eval()
     model.to(device)
@@ -151,7 +152,8 @@ def evaluate(
     mae = float(mean_absolute_error(y_true, y_pred))
     rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
     r2 = float(r2_score(y_true, y_pred))
-    return {"mae": mae, "rmse": rmse, "r2": r2}
+    within_1day = float(np.mean(np.abs(y_true - y_pred) <= 1.0))
+    return {"mae": mae, "rmse": rmse, "r2": r2, "within_1day_acc": within_1day}
 
 
 def train_model(

@@ -132,14 +132,15 @@ def run_fedavg(
         avg_mae = sum(w * m["mae"] for w, m in zip(weights, hospital_evals))
         avg_rmse = sum(w * m["rmse"] for w, m in zip(weights, hospital_evals))
         avg_r2 = sum(w * m["r2"] for w, m in zip(weights, hospital_evals))
-        round_metric = {"mae": avg_mae, "rmse": avg_rmse, "r2": avg_r2}
+        avg_w1d = sum(w * m["within_1day_acc"] for w, m in zip(weights, hospital_evals))
+        round_metric = {"mae": avg_mae, "rmse": avg_rmse, "r2": avg_r2, "within_1day_acc": avg_w1d}
 
         round_metrics.append(round_metric)
         per_hospital_metrics.append(hospital_evals)
 
         logger.info(
-            "FedAvg round %d/%d — mae=%.4f, rmse=%.4f, r2=%.4f",
-            rnd + 1, n_rounds, avg_mae, avg_rmse, avg_r2,
+            "FedAvg round %d/%d — mae=%.4f, rmse=%.4f, r2=%.4f, w1d=%.4f",
+            rnd + 1, n_rounds, avg_mae, avg_rmse, avg_r2, avg_w1d,
         )
 
     # Communication cost: 2 * N * params per round (broadcast + upload)

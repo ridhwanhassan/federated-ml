@@ -114,7 +114,7 @@ class TestEvaluate:
         """Should return dict with mae, rmse, r2 keys."""
         model = LOSModel(n_features=10)
         metrics = evaluate(model, synthetic_loader)
-        assert set(metrics.keys()) == {"mae", "rmse", "r2"}
+        assert set(metrics.keys()) == {"mae", "rmse", "r2", "within_1day_acc"}
 
     def test_metrics_are_floats(self, synthetic_loader):
         """All metric values should be Python floats."""
@@ -184,7 +184,7 @@ class TestTrainModel:
         result = train_model(model, train_loader, val_loader, n_epochs=3, patience=10)
         assert len(result["val_metrics"]) == 3
         for m in result["val_metrics"]:
-            assert set(m.keys()) == {"mae", "rmse", "r2"}
+            assert set(m.keys()) == {"mae", "rmse", "r2", "within_1day_acc"}
 
     def test_uses_huber_loss(self, synthetic_train_val):
         """Default should use Huber loss (not MSE)."""
