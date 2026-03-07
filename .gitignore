@@ -160,4 +160,4 @@ infra/Pulumi.*.yaml
 !infra/Pulumi.yaml
 
 
-data/raw/
+data/processed/

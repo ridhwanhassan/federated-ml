@@ -16,6 +16,7 @@ ml = [
     "numpy>=1.26",
     "scikit-learn>=1.4",
     "torch>=2.2",
+    "xgboost>=3.2.0",
 ]
 test = [
     "pytest>=8.0",
@@ -25,6 +26,7 @@ test = [
     "numpy>=1.26",
     "scikit-learn>=1.4",
     "torch>=2.2",
+    "xgboost>=3.2.0",
 ]
 
 [tool.pytest.ini_options]
