@@ -159,16 +159,17 @@ def main() -> None:
     print("\n" + "=" * 70)
     print("SUMMARY (mean +/- std across %d seeds)" % len(seeds))
     print("=" * 70)
-    print(f"{'Experiment':<25} {'MAE':>12} {'RMSE':>12} {'R2':>12}")
-    print("-" * 70)
+    print(f"{'Experiment':<25} {'MAE':>12} {'RMSE':>12} {'R2':>12} {'W-1d':>12}")
+    print("-" * 82)
     for name, metrics in summary.items():
         if name == "elapsed_seconds":
             continue
         mae_str = f"{metrics['mae_mean']:.3f}+/-{metrics['mae_std']:.3f}"
         rmse_str = f"{metrics['rmse_mean']:.3f}+/-{metrics['rmse_std']:.3f}"
         r2_str = f"{metrics['r2_mean']:.3f}+/-{metrics['r2_std']:.3f}"
-        print(f"{name:<25} {mae_str:>12} {rmse_str:>12} {r2_str:>12}")
-    print("=" * 70)
+        w1d_str = f"{metrics['within_1day_mean']:.3f}+/-{metrics['within_1day_std']:.3f}"
+        print(f"{name:<25} {mae_str:>12} {rmse_str:>12} {r2_str:>12} {w1d_str:>12}")
+    print("=" * 82)
 
 
 if __name__ == "__main__":

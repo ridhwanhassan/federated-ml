@@ -334,7 +334,7 @@ class TestEvaluate:
         """Should return dict with mae, rmse, r2 keys."""
         model = LOSModel(n_features=10)
         metrics = evaluate(model, synthetic_loader)
-        assert set(metrics.keys()) == {"mae", "rmse", "r2"}
+        assert set(metrics.keys()) == {"mae", "rmse", "r2", "within_1day"}
 
     def test_metrics_are_floats(self, synthetic_loader):
         """All metric values should be Python floats."""
@@ -397,7 +397,7 @@ def evaluate(
     Returns
     -------
     dict[str, float]
-        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``.
+        Dictionary with keys ``"mae"``, ``"rmse"``, ``"r2"``, ``"within_1day"``.
     """
     model.eval()
     model.to(device)
@@ -415,7 +415,8 @@ def evaluate(
     mae = float(mean_absolute_error(y_true, y_pred))
     rmse = float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
     r2 = float(r2_score(y_true, y_pred))
-    return {"mae": mae, "rmse": rmse, "r2": r2}
+    within_1day = float(np.mean(np.abs(y_true - y_pred) <= 1.0))
+    return {"mae": mae, "rmse": rmse, "r2": r2, "within_1day": within_1day}
 ```
 
 **Step 4: Run tests to verify they pass**
@@ -484,7 +485,7 @@ class TestTrainModel:
         result = train_model(model, train_loader, val_loader, n_epochs=3, patience=10)
         assert len(result["val_metrics"]) == 3
         for m in result["val_metrics"]:
-            assert set(m.keys()) == {"mae", "rmse", "r2"}
+            assert set(m.keys()) == {"mae", "rmse", "r2", "within_1day"}
 
     def test_uses_huber_loss(self, synthetic_train_val):
         """Default should use Huber loss (not MSE)."""

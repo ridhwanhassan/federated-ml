@@ -79,7 +79,7 @@ def per_hospital_fairness(
     Parameters
     ----------
     per_hospital_metrics : list[dict]
-        List of ``{"mae": ..., "rmse": ..., "r2": ...}`` per hospital.
+        List of ``{"mae": ..., "rmse": ..., "r2": ..., "within_1day": ...}`` per hospital.
 
     Returns
     -------
