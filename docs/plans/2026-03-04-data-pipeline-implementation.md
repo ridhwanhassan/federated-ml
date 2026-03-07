@@ -126,7 +126,7 @@ def sample_admissions():
         ]),
         "hospital_expire_flag": [0, 0, 1, 0, 0],  # subject 2 dies
         "insurance": ["Medicare", "Medicare", "Medicaid", "Other", "Medicare"],
-        "ethnicity": ["WHITE", "WHITE", "BLACK", "ASIAN", "HISPANIC"],
+        "race": ["WHITE", "WHITE", "BLACK", "ASIAN", "HISPANIC"],
         "admission_type": ["EMERGENCY", "URGENT", "EMERGENCY", "ELECTIVE", "EMERGENCY"],
     })
 
@@ -238,7 +238,7 @@ def test_extract_cohort_has_expected_columns(
     )
     required = {
         "stay_id", "subject_id", "hadm_id", "gender", "anchor_age",
-        "ethnicity", "insurance", "admission_type",
+        "race", "insurance", "admission_type",
         "first_careunit", "last_careunit", "intime", "outtime", "los",
         "n_diagnoses", "n_procedures", "drg_code",
     }
@@ -321,7 +321,7 @@ logger = logging.getLogger(__name__)
 # Columns to keep in final output
 COHORT_COLUMNS = [
     "stay_id", "subject_id", "hadm_id",
-    "gender", "anchor_age", "ethnicity", "insurance", "admission_type",
+    "gender", "anchor_age", "race", "insurance", "admission_type",
     "first_careunit", "last_careunit", "intime", "outtime", "los",
     "n_diagnoses", "n_procedures", "drg_code",
 ]
@@ -344,7 +344,7 @@ def extract_cohort(
     icustays : pd.DataFrame
         ICU stays table with stay_id, subject_id, hadm_id, los, careunit.
     admissions : pd.DataFrame
-        Admissions with hospital_expire_flag, insurance, ethnicity.
+        Admissions with hospital_expire_flag, insurance, race.
     patients : pd.DataFrame
         Patient demographics (gender, anchor_age).
     diagnoses : pd.DataFrame
@@ -368,8 +368,9 @@ def extract_cohort(
     logger.info("After LOS filter (%s < los <= %s): %d stays", los_min, los_max, len(cohort))
 
     # Join admissions — exclude in-hospital deaths
-    adm_cols = ["subject_id", "hadm_id", "hospital_expire_flag", "insurance", "ethnicity", "admission_type"]
-    cohort = cohort.merge(admissions[adm_cols], on=["subject_id", "hadm_id"], how="left")
+    adm_cols = ["hadm_id", "hospital_expire_flag", "race", "insurance", "admission_type"]
+    adm_subset = admissions[[c for c in adm_cols if c in admissions.columns]].copy()
+    cohort = cohort.merge(adm_subset, on="hadm_id", how="left")
     cohort = cohort[cohort["hospital_expire_flag"] != 1].copy()
     logger.info("After excluding deaths: %d stays", len(cohort))
 
@@ -515,7 +516,7 @@ def sample_cohort():
         "hadm_id": [100, 200],
         "gender": ["M", "F"],
         "anchor_age": [65, 72],
-        "ethnicity": ["WHITE", "BLACK/AFRICAN AMERICAN"],
+        "race": ["WHITE", "BLACK/AFRICAN AMERICAN"],
         "insurance": ["Medicare", "Medicaid"],
         "admission_type": ["EMERGENCY", "ELECTIVE"],
         "first_careunit": ["MICU", "SICU"],
@@ -652,9 +653,10 @@ VITAL_ITEMS = {
     "hr": [220045],
     "sbp": [220050, 220179],
     "dbp": [220051, 220180],
+    "mbp": [220052, 220181],
+    "rr": [220210, 224690],
     "spo2": [220277],
     "temp": [223761, 223762],
-    "rr": [220210, 224690],
 }
 
 ALL_VITAL_ITEMIDS = {iid for ids in VITAL_ITEMS.values() for iid in ids}
@@ -673,7 +675,7 @@ LAB_ITEMS = {
     "bun": [51006],
     "wbc": [51301],
     "hemoglobin": [51222],
-    "platelets": [51265],
+    "platelet": [51265],
     "sodium": [50983],
     "potassium": [50971],
     "bicarbonate": [50882],
@@ -807,7 +809,7 @@ def encode_categorical_features(cohort: pd.DataFrame) -> pd.DataFrame:
     Parameters
     ----------
     cohort : pd.DataFrame
-        Must have gender, ethnicity, insurance, admission_type, drg_code.
+        Must have gender, race, insurance, admission_type, drg_code.
 
     Returns
     -------
@@ -820,10 +822,11 @@ def encode_categorical_features(cohort: pd.DataFrame) -> pd.DataFrame:
     df["gender"] = (df["gender"] == "M").astype(int)
 
     # Ethnicity: keep top-5, rest as OTHER, then one-hot
-    top_eth = df["ethnicity"].value_counts().nlargest(5).index
-    df["ethnicity"] = df["ethnicity"].where(df["ethnicity"].isin(top_eth), "OTHER")
-    eth_dummies = pd.get_dummies(df["ethnicity"], prefix="eth", dtype=int)
-    df = pd.concat([df.drop(columns=["ethnicity"]), eth_dummies], axis=1)
+    top_eth = df["race"].value_counts().nlargest(5).index.tolist()
+    df["race"] = df["race"].where(df["race"].isin(top_eth), "OTHER")
+    eth_dummies = pd.get_dummies(df["race"], prefix="eth", dtype=int)
+    df = df.drop(columns=["race"])
+    df = pd.concat([df, eth_dummies], axis=1)
 
     # Insurance: one-hot
     ins_dummies = pd.get_dummies(df["insurance"], prefix="ins", dtype=int)
@@ -1068,13 +1071,13 @@ def sample_features():
     return pd.DataFrame({
         "stay_id": [1, 2, 3, 4, 5, 6, 7],
         "first_careunit": [
-            "Medical ICU",          # H1
-            "Neuro Stepdown",       # H2
-            "Surgical ICU",         # H3
-            "Trauma SICU",          # H4
-            "Coronary Care Unit",   # H5
-            "MICU/SICU",            # H1
-            "Unknown Unit",         # H1 (default)
+            "Medical Intensive Care Unit (MICU)",               # H1
+            "Neuro Stepdown",                                   # H2
+            "Surgical Intensive Care Unit (SICU)",              # H3
+            "Trauma SICU (TSICU)",                              # H4
+            "Coronary Care Unit (CCU)",                         # H5
+            "Medical/Surgical Intensive Care Unit (MICU/SICU)", # H1
+            "Unknown Unit",                                     # H1 (default)
         ],
         "los": [3.0, 2.0, 5.0, 1.0, 4.0, 2.0, 6.0],
         "anchor_age": [65, 72, 55, 80, 60, 70, 50],
@@ -1083,11 +1086,11 @@ def sample_features():
 
 
 def test_assign_hospital_known_units():
-    assert assign_hospital("Medical ICU") == 1
+    assert assign_hospital("Medical Intensive Care Unit (MICU)") == 1
     assert assign_hospital("Neuro Stepdown") == 2
-    assert assign_hospital("Surgical ICU") == 3
-    assert assign_hospital("Trauma SICU") == 4
-    assert assign_hospital("Coronary Care Unit") == 5
+    assert assign_hospital("Surgical Intensive Care Unit (SICU)") == 3
+    assert assign_hospital("Trauma SICU (TSICU)") == 4
+    assert assign_hospital("Coronary Care Unit (CCU)") == 5
 
 
 def test_assign_hospital_default_to_h1():
@@ -1177,23 +1180,22 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Care unit → hospital mapping (includes full names and abbreviations)
+# Care unit → hospital mapping (MIMIC-IV v2.2 first_careunit values)
 HOSPITAL_PARTITION: dict[str, int] = {
-    "Medical ICU": 1,
-    "Med/Surg ICU": 1,
-    "MICU": 1,
-    "MICU/SICU": 1,
+    # H1 — Medical
+    "Medical Intensive Care Unit (MICU)": 1,
+    "Medical/Surgical Intensive Care Unit (MICU/SICU)": 1,
+    # H2 — Neuro
     "Neuro Intermediate": 2,
     "Neuro Stepdown": 2,
-    "Neuro SICU": 2,
-    "Surgical ICU": 3,
-    "SICU": 3,
-    "Trauma SICU": 4,
-    "TSICU": 4,
-    "Coronary Care Unit": 5,
-    "CCU": 5,
-    "Cardiac Vascular ICU": 5,
-    "CVICU": 5,
+    "Neuro Surgical Intensive Care Unit (Neuro SICU)": 2,
+    # H3 — Surgical
+    "Surgical Intensive Care Unit (SICU)": 3,
+    # H4 — Trauma
+    "Trauma SICU (TSICU)": 4,
+    # H5 — Cardiac
+    "Coronary Care Unit (CCU)": 5,
+    "Cardiac Vascular Intensive Care Unit (CVICU)": 5,
 }
 
 HOSPITAL_NAMES = {
@@ -1245,16 +1247,10 @@ def partition_features(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     features = features.copy()
-    features["hospital"] = features["first_careunit"].apply(assign_hospital)
+    features["hospital"] = features["first_careunit"].map(assign_hospital)
 
-    # Log unmatched care units
-    unmatched = features[~features["first_careunit"].isin(HOSPITAL_PARTITION)]
-    if len(unmatched) > 0:
-        units = unmatched["first_careunit"].unique().tolist()
-        logger.warning("Unmatched care units defaulted to H1: %s", units)
-
-    partitions = {}
-    stats = {}
+    partitions: dict[int, pd.DataFrame] = {}
+    stats: dict[str, dict] = {}
 
     for h in range(1, 6):
         part = features[features["hospital"] == h].drop(columns=["hospital"])
