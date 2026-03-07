@@ -1,0 +1,20 @@
+\begin{table}[t]
+\centering
+\caption{Main comparison of all training strategies. MAE and RMSE in days; R$^2$ dimensionless. Mean $\pm$ std over 5 seeds.}
+\label{tab:main}
+\begin{tabular}{lccc}
+\toprule
+Method & MAE $\downarrow$ & RMSE $\downarrow$ & R$^2$ $\uparrow$ \\
+\midrule
+Centralized MLP & 1.706 ± 0.010 & 3.113 ± 0.104 & 0.327 ± 0.032 \\
+Centralized XGBoost & 1.745 ± 0.001 & 2.932 ± 0.006 & 0.403 ± 0.009 \\
+FedAvg (E=1) & 1.742 ± 0.010 & 3.178 ± 0.157 & 0.269 ± 0.062 \\
+FedAvg (E=3) & 1.727 ± 0.013 & 3.071 ± 0.041 & 0.323 ± 0.003 \\
+FedAvg (E=5) & 1.750 ± 0.003 & 3.096 ± 0.069 & 0.313 ± 0.014 \\
+D-PSGD (E=1) & 1.808 ± 0.004 & 3.172 ± 0.104 & 0.334 ± 0.049 \\
+D-PSGD (E=3) & 1.811 ± 0.003 & 3.150 ± 0.040 & 0.354 ± 0.013 \\
+D-PSGD (E=5) & 1.825 ± 0.004 & 3.168 ± 0.043 & 0.345 ± 0.013 \\
+Local-only (avg) & 1.740 ± 0.233 & 3.265 ± 0.650 & 0.285 ± 0.270 \\
+\bottomrule
+\end{tabular}
+\end{table}

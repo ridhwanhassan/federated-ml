@@ -1,0 +1,37 @@
+# FedCost experiment configuration
+# All experiments use these shared hyperparameters unless overridden via CLI.
+
+data:
+  features_csv: data/processed/features.csv
+  partitions_dir: data/processed/partitions
+  n_hospitals: 5
+  val_ratio: 0.2
+  batch_size: 64
+
+model:
+  hidden_dims: [256, 128, 64]
+  dropout: 0.3
+  huber_delta: 5.0
+
+training:
+  lr: 0.001
+  weight_decay: 0.0001
+  n_epochs: 100          # centralized / local-only max epochs
+  patience: 10           # early stopping patience
+
+federation:
+  n_rounds: 50
+  local_epochs: [1, 3, 5]  # ablation settings
+  default_local_epochs: 3
+
+xgboost:
+  n_estimators: 500
+  max_depth: 6
+  learning_rate: 0.05
+  early_stopping_rounds: 20
+
+experiment:
+  seeds: [42, 43, 44, 45, 46]
+  results_dir: results/metrics
+  checkpoints_dir: results/checkpoints
+  device: cpu
