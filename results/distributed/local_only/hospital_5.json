@@ -1,0 +1,72 @@
+[
+  {
+    "experiment": "local_only",
+    "hospital_id": 5,
+    "hospital_name": "H5 (Cardiac)",
+    "seed": 42,
+    "final_metrics": {
+      "mae": 1.5074950456619263,
+      "rmse": 2.8176119327545166,
+      "r2": 0.24292224645614624,
+      "within_1day": 0.584780278670954
+    },
+    "best_val_mae": 1.5074950456619263,
+    "n_epochs_trained": 32
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 5,
+    "hospital_name": "H5 (Cardiac)",
+    "seed": 43,
+    "final_metrics": {
+      "mae": 1.4470361471176147,
+      "rmse": 2.593312978744507,
+      "r2": 0.31965529918670654,
+      "within_1day": 0.5929260450160772
+    },
+    "best_val_mae": 1.4470361471176147,
+    "n_epochs_trained": 30
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 5,
+    "hospital_name": "H5 (Cardiac)",
+    "seed": 44,
+    "final_metrics": {
+      "mae": 1.4562532901763916,
+      "rmse": 2.4670517444610596,
+      "r2": 0.34031885862350464,
+      "within_1day": 0.5721329046087889
+    },
+    "best_val_mae": 1.4562532901763916,
+    "n_epochs_trained": 29
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 5,
+    "hospital_name": "H5 (Cardiac)",
+    "seed": 45,
+    "final_metrics": {
+      "mae": 1.4488525390625,
+      "rmse": 2.5363199710845947,
+      "r2": 0.31782692670822144,
+      "within_1day": 0.5914255091103966
+    },
+    "best_val_mae": 1.4488525390625,
+    "n_epochs_trained": 21
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 5,
+    "hospital_name": "H5 (Cardiac)",
+    "seed": 46,
+    "final_metrics": {
+      "mae": 1.4560189247131348,
+      "rmse": 3.812954902648926,
+      "r2": -0.5535204410552979,
+      "within_1day": 0.5877813504823152
+    },
+    "best_val_mae": 1.4560189247131348,
+    "n_epochs_trained": 21
+  }
+]

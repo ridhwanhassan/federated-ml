@@ -1,0 +1,72 @@
+[
+  {
+    "experiment": "local_only",
+    "hospital_id": 4,
+    "hospital_name": "H4 (Trauma)",
+    "seed": 42,
+    "final_metrics": {
+      "mae": 1.7987885475158691,
+      "rmse": 4.772583961486816,
+      "r2": -0.35196852684020996,
+      "within_1day": 0.5604751619870411
+    },
+    "best_val_mae": 1.7987885475158691,
+    "n_epochs_trained": 18
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 4,
+    "hospital_name": "H4 (Trauma)",
+    "seed": 43,
+    "final_metrics": {
+      "mae": 1.6015323400497437,
+      "rmse": 2.866201400756836,
+      "r2": 0.4555813670158386,
+      "within_1day": 0.5912526997840173
+    },
+    "best_val_mae": 1.6015323400497437,
+    "n_epochs_trained": 37
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 4,
+    "hospital_name": "H4 (Trauma)",
+    "seed": 44,
+    "final_metrics": {
+      "mae": 1.6147339344024658,
+      "rmse": 2.9562714099884033,
+      "r2": 0.5012850761413574,
+      "within_1day": 0.5766738660907127
+    },
+    "best_val_mae": 1.6147339344024658,
+    "n_epochs_trained": 28
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 4,
+    "hospital_name": "H4 (Trauma)",
+    "seed": 45,
+    "final_metrics": {
+      "mae": 1.8731523752212524,
+      "rmse": 4.544070720672607,
+      "r2": -0.09417378902435303,
+      "within_1day": 0.5755939524838013
+    },
+    "best_val_mae": 1.8731523752212524,
+    "n_epochs_trained": 38
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 4,
+    "hospital_name": "H4 (Trauma)",
+    "seed": 46,
+    "final_metrics": {
+      "mae": 1.7027215957641602,
+      "rmse": 3.4908950328826904,
+      "r2": 0.24176138639450073,
+      "within_1day": 0.5642548596112311
+    },
+    "best_val_mae": 1.7027215957641602,
+    "n_epochs_trained": 30
+  }
+]

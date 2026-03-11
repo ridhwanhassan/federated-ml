@@ -1,0 +1,72 @@
+[
+  {
+    "experiment": "local_only",
+    "hospital_id": 3,
+    "hospital_name": "H3 (Surgical)",
+    "seed": 42,
+    "final_metrics": {
+      "mae": 1.7616064548492432,
+      "rmse": 3.470463275909424,
+      "r2": 0.263339102268219,
+      "within_1day": 0.5608791208791208
+    },
+    "best_val_mae": 1.7616064548492432,
+    "n_epochs_trained": 17
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 3,
+    "hospital_name": "H3 (Surgical)",
+    "seed": 43,
+    "final_metrics": {
+      "mae": 1.7866860628128052,
+      "rmse": 3.2205045223236084,
+      "r2": 0.3696931004524231,
+      "within_1day": 0.5613186813186813
+    },
+    "best_val_mae": 1.7866860628128052,
+    "n_epochs_trained": 29
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 3,
+    "hospital_name": "H3 (Surgical)",
+    "seed": 44,
+    "final_metrics": {
+      "mae": 1.7020924091339111,
+      "rmse": 3.110827922821045,
+      "r2": 0.35194677114486694,
+      "within_1day": 0.5617582417582417
+    },
+    "best_val_mae": 1.7020924091339111,
+    "n_epochs_trained": 17
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 3,
+    "hospital_name": "H3 (Surgical)",
+    "seed": 45,
+    "final_metrics": {
+      "mae": 1.740342378616333,
+      "rmse": 3.2681283950805664,
+      "r2": 0.32485389709472656,
+      "within_1day": 0.5723076923076923
+    },
+    "best_val_mae": 1.740342378616333,
+    "n_epochs_trained": 30
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 3,
+    "hospital_name": "H3 (Surgical)",
+    "seed": 46,
+    "final_metrics": {
+      "mae": 1.7155672311782837,
+      "rmse": 3.1283907890319824,
+      "r2": 0.43471813201904297,
+      "within_1day": 0.5727472527472528
+    },
+    "best_val_mae": 1.7155672311782837,
+    "n_epochs_trained": 35
+  }
+]

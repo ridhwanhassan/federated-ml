@@ -1,0 +1,72 @@
+[
+  {
+    "experiment": "local_only",
+    "hospital_id": 2,
+    "hospital_name": "H2 (Neuro)",
+    "seed": 42,
+    "final_metrics": {
+      "mae": 2.0972483158111572,
+      "rmse": 3.3522965908050537,
+      "r2": 0.43819159269332886,
+      "within_1day": 0.4358353510895884
+    },
+    "best_val_mae": 2.0972483158111572,
+    "n_epochs_trained": 21
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 2,
+    "hospital_name": "H2 (Neuro)",
+    "seed": 43,
+    "final_metrics": {
+      "mae": 2.2151899337768555,
+      "rmse": 3.5685558319091797,
+      "r2": 0.47527754306793213,
+      "within_1day": 0.4303874092009685
+    },
+    "best_val_mae": 2.2151899337768555,
+    "n_epochs_trained": 15
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 2,
+    "hospital_name": "H2 (Neuro)",
+    "seed": 44,
+    "final_metrics": {
+      "mae": 2.3060824871063232,
+      "rmse": 3.805232048034668,
+      "r2": 0.3275676369667053,
+      "within_1day": 0.4194915254237288
+    },
+    "best_val_mae": 2.3060824871063232,
+    "n_epochs_trained": 19
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 2,
+    "hospital_name": "H2 (Neuro)",
+    "seed": 45,
+    "final_metrics": {
+      "mae": 2.2216670513153076,
+      "rmse": 3.9115073680877686,
+      "r2": 0.27826470136642456,
+      "within_1day": 0.4406779661016949
+    },
+    "best_val_mae": 2.2216670513153076,
+    "n_epochs_trained": 31
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 2,
+    "hospital_name": "H2 (Neuro)",
+    "seed": 46,
+    "final_metrics": {
+      "mae": 2.3234801292419434,
+      "rmse": 3.7628283500671387,
+      "r2": 0.4674084186553955,
+      "within_1day": 0.39648910411622273
+    },
+    "best_val_mae": 2.3234801292419434,
+    "n_epochs_trained": 19
+  }
+]

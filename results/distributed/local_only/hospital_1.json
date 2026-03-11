@@ -1,0 +1,72 @@
+[
+  {
+    "experiment": "local_only",
+    "hospital_id": 1,
+    "hospital_name": "H1 (Medical)",
+    "seed": 42,
+    "final_metrics": {
+      "mae": 1.644803762435913,
+      "rmse": 3.1377010345458984,
+      "r2": 0.3192514181137085,
+      "within_1day": 0.6002961987822939
+    },
+    "best_val_mae": 1.644803762435913,
+    "n_epochs_trained": 42
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 1,
+    "hospital_name": "H1 (Medical)",
+    "seed": 43,
+    "final_metrics": {
+      "mae": 1.5605602264404297,
+      "rmse": 2.922252893447876,
+      "r2": 0.3323934078216553,
+      "within_1day": 0.5996379792660852
+    },
+    "best_val_mae": 1.5605602264404297,
+    "n_epochs_trained": 30
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 1,
+    "hospital_name": "H1 (Medical)",
+    "seed": 44,
+    "final_metrics": {
+      "mae": 1.5770736932754517,
+      "rmse": 2.9943761825561523,
+      "r2": 0.33339643478393555,
+      "within_1day": 0.5999670890241896
+    },
+    "best_val_mae": 1.5770736932754517,
+    "n_epochs_trained": 27
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 1,
+    "hospital_name": "H1 (Medical)",
+    "seed": 45,
+    "final_metrics": {
+      "mae": 1.6130146980285645,
+      "rmse": 3.0491724014282227,
+      "r2": 0.2969312071800232,
+      "within_1day": 0.6001316439032417
+    },
+    "best_val_mae": 1.6130146980285645,
+    "n_epochs_trained": 17
+  },
+  {
+    "experiment": "local_only",
+    "hospital_id": 1,
+    "hospital_name": "H1 (Medical)",
+    "seed": 46,
+    "final_metrics": {
+      "mae": 1.6527847051620483,
+      "rmse": 3.6084401607513428,
+      "r2": 0.06722092628479004,
+      "within_1day": 0.6124732598321541
+    },
+    "best_val_mae": 1.6527847051620483,
+    "n_epochs_trained": 57
+  }
+]

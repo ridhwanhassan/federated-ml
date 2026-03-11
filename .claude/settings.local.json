@@ -5,7 +5,27 @@
       "WebFetch(domain:pyhealth.readthedocs.io)",
       "WebSearch",
       "WebFetch(domain:github.com)",
-      "Bash(uv sync:*)"
+      "Bash(uv sync:*)",
+      "Bash(uv:*)",
+      "Bash(wc:*)",
+      "Bash(python:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(pulumi config:*)",
+      "Bash(pulumi stack:*)",
+      "Bash(aws ssm:*)",
+      "Bash(PYTHONIOENCODING=utf-8 aws ssm:*)",
+      "Bash(chcp 65001:*)",
+      "Bash(PYTHONUTF8=1 aws ssm:*)",
+      "Bash(MSYS_NO_PATHCONV=1 aws ssm:*)",
+      "Bash(do ssh-keygen:*)",
+      "Bash(MSYS_NO_PATHCONV=1 PYTHONUTF8=1 aws ssm:*)",
+      "Bash(tar czf:*)",
+      "Bash(do:*)",
+      "Bash(xxd:*)",
+      "Bash(aws s3:*)",
+      "Bash(sed:*)",
+      "Bash(pulumi up:*)",
+      "Bash(ssh:*)"
     ]
   }
 }
