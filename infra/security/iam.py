@@ -76,7 +76,7 @@ def create_iam_resources(
         Mapping of role name to IAM resources.
         Keys: "hospital", "fl-server", "centralized".
     """
-    # Hospital: read S3 + read SSM
+    # Hospital: read/write S3 (write needed for model upload) + read SSM
     hospital_policy = data_bucket_arn.apply(
         lambda arn: json.dumps(
             {
@@ -84,7 +84,11 @@ def create_iam_resources(
                 "Statement": [
                     {
                         "Effect": "Allow",
-                        "Action": ["s3:GetObject", "s3:ListBucket"],
+                        "Action": [
+                            "s3:GetObject",
+                            "s3:ListBucket",
+                            "s3:PutObject",
+                        ],
                         "Resource": [arn, f"{arn}/*"],
                     },
                     {
@@ -100,7 +104,7 @@ def create_iam_resources(
         )
     )
 
-    # FL server: read S3 + read/write SSM
+    # FL server: read/write S3 + read/write SSM
     fl_server_policy = data_bucket_arn.apply(
         lambda arn: json.dumps(
             {
@@ -108,7 +112,11 @@ def create_iam_resources(
                 "Statement": [
                     {
                         "Effect": "Allow",
-                        "Action": ["s3:GetObject", "s3:ListBucket"],
+                        "Action": [
+                            "s3:GetObject",
+                            "s3:ListBucket",
+                            "s3:PutObject",
+                        ],
                         "Resource": [arn, f"{arn}/*"],
                     },
                     {
