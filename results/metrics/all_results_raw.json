@@ -1,4 +1,62 @@
 {
+  "hyperparameters": {
+    "data": {
+      "n_hospitals": 5,
+      "val_ratio": 0.2,
+      "batch_size": 64
+    },
+    "model": {
+      "architecture": "MLP",
+      "hidden_dims": [
+        256,
+        128,
+        64
+      ],
+      "dropout": 0.3,
+      "activation": "ReLU",
+      "normalization": "BatchNorm1d",
+      "loss": "HuberLoss",
+      "huber_delta": 5.0
+    },
+    "training": {
+      "optimizer": "Adam",
+      "lr": 0.001,
+      "weight_decay": 0.0001,
+      "scheduler": "ReduceLROnPlateau",
+      "scheduler_factor": 0.5,
+      "n_epochs": 100,
+      "patience": 10
+    },
+    "federation": {
+      "n_rounds": 50,
+      "local_epochs_ablation": [
+        1,
+        3,
+        5
+      ],
+      "default_local_epochs": 3,
+      "fedavg_aggregation": "weighted_average_by_dataset_size",
+      "gossip_topology": "ring",
+      "gossip_mixing": "metropolis_hastings",
+      "gossip_mixing_weights": "1/3 self, 1/3 left, 1/3 right"
+    },
+    "xgboost": {
+      "n_estimators": 500,
+      "max_depth": 6,
+      "learning_rate": 0.05,
+      "early_stopping_rounds": 20
+    },
+    "experiment": {
+      "seeds": [
+        42,
+        43,
+        44,
+        45,
+        46
+      ],
+      "device": "cpu"
+    }
+  },
   "centralized_mlp": [
     {
       "experiment": "centralized_mlp",

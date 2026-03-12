@@ -1,0 +1,149 @@
+{
+  "hospital_1": {
+    "name": "H1 (Medical)",
+    "n_samples": 30381,
+    "pct_of_total": 36.8,
+    "n_features": 75,
+    "los": {
+      "mean": 2.954,
+      "std": 3.68,
+      "median": 1.776,
+      "q25": 0.984,
+      "q75": 3.138,
+      "min": 0.001,
+      "max": 29.984,
+      "skewness": 3.356
+    },
+    "missing_pct": 1.02,
+    "age": {
+      "mean": 60.8,
+      "std": 17.6,
+      "median": 62.0
+    },
+    "gender_pct": {
+      "1": 52.1,
+      "0": 47.9
+    }
+  },
+  "hospital_2": {
+    "name": "H2 (Neuro)",
+    "n_samples": 8260,
+    "pct_of_total": 10.0,
+    "n_features": 75,
+    "los": {
+      "mean": 4.343,
+      "std": 4.755,
+      "median": 2.716,
+      "q25": 1.335,
+      "q75": 5.354,
+      "min": 0.003,
+      "max": 29.987,
+      "skewness": 2.377
+    },
+    "missing_pct": 2.17,
+    "age": {
+      "mean": 61.6,
+      "std": 17.0,
+      "median": 63.0
+    },
+    "gender_pct": {
+      "0": 51.3,
+      "1": 48.7
+    }
+  },
+  "hospital_3": {
+    "name": "H3 (Surgical)",
+    "n_samples": 11375,
+    "pct_of_total": 13.8,
+    "n_features": 75,
+    "los": {
+      "mean": 3.345,
+      "std": 4.073,
+      "median": 1.925,
+      "q25": 1.081,
+      "q75": 3.736,
+      "min": 0.007,
+      "max": 29.99,
+      "skewness": 3.076
+    },
+    "missing_pct": 1.22,
+    "age": {
+      "mean": 60.9,
+      "std": 16.5,
+      "median": 62.0
+    },
+    "gender_pct": {
+      "1": 53.5,
+      "0": 46.5
+    }
+  },
+  "hospital_4": {
+    "name": "H4 (Trauma)",
+    "n_samples": 9259,
+    "pct_of_total": 11.2,
+    "n_features": 75,
+    "los": {
+      "mean": 3.237,
+      "std": 4.122,
+      "median": 1.837,
+      "q25": 1.017,
+      "q75": 3.505,
+      "min": 0.005,
+      "max": 29.981,
+      "skewness": 3.097
+    },
+    "missing_pct": 1.23,
+    "age": {
+      "mean": 59.3,
+      "std": 19.1,
+      "median": 61.0
+    },
+    "gender_pct": {
+      "1": 58.6,
+      "0": 41.4
+    }
+  },
+  "hospital_5": {
+    "name": "H5 (Cardiac)",
+    "n_samples": 23321,
+    "pct_of_total": 28.2,
+    "n_features": 75,
+    "los": {
+      "mean": 2.895,
+      "std": 3.142,
+      "median": 1.97,
+      "q25": 1.185,
+      "q75": 3.306,
+      "min": 0.001,
+      "max": 29.987,
+      "skewness": 3.586
+    },
+    "missing_pct": 0.96,
+    "age": {
+      "mean": 66.5,
+      "std": 13.8,
+      "median": 68.0
+    },
+    "gender_pct": {
+      "1": 63.9,
+      "0": 36.1
+    }
+  },
+  "pooled": {
+    "name": "Pooled",
+    "n_samples": 82596,
+    "pct_of_total": 100.0,
+    "n_features": 75,
+    "los": {
+      "mean": 3.162,
+      "std": 3.795,
+      "median": 1.901,
+      "q25": 1.088,
+      "q75": 3.53,
+      "min": 0.001,
+      "max": 29.99,
+      "skewness": 3.22
+    },
+    "missing_pct": 1.17
+  }
+}

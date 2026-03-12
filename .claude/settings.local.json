@@ -25,7 +25,9 @@
       "Bash(aws s3:*)",
       "Bash(sed:*)",
       "Bash(pulumi up:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(source /f/IEEE/federated-deployment/.venv/Scripts/activate && echo \"Virtual environment activated successfully\" && which python)",
+      "Bash(cd F:/IEEE/federated-deployment && source .venv/Scripts/activate && python experiments/eda.py --no-plots)"
     ]
   }
 }
